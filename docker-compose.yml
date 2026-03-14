@@ -1,7 +1,6 @@
 version: "3.9"
 
 services:
-
   postgres:
     image: postgres:16
     container_name: ai-postgres
@@ -19,25 +18,40 @@ services:
     image: adminer:latest
     container_name: ai-adminer
     restart: unless-stopped
-    ports:
-      - "8080:8080"
     depends_on:
       - postgres
+    ports:
+      - "8080:8080"
 
   qdrant:
     image: qdrant/qdrant:latest
     container_name: ai-qdrant
     restart: unless-stopped
+    volumes:
+      - qdrant_data:/qdrant/storage
     ports:
       - "6333:6333"
       - "6334:6334"
+
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    container_name: ai-litellm
+    restart: unless-stopped
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
     volumes:
-      - qdrant_data:/qdrant/storage
+      - ./litellm-config.yaml:/app/config.yaml:ro
+    ports:
+      - "4000:4000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   n8n:
     image: docker.n8n.io/n8nio/n8n:latest
     container_name: ai-n8n
     restart: unless-stopped
+    depends_on:
+      - postgres
+      - litellm
     ports:
       - "5678:5678"
     environment:
@@ -52,11 +66,7 @@ services:
       N8N_PROTOCOL: http
       WEBHOOK_URL: http://localhost:5678/
       GENERIC_TIMEZONE: America/Los_Angeles
-
-      # Allows containers to call your local LLM
       OLLAMA_HOST: http://host.docker.internal:11434
-    depends_on:
-      - postgres
     volumes:
       - n8n_data:/home/node/.n8n
     extra_hosts:
@@ -66,14 +76,15 @@ services:
     image: ghcr.io/open-webui/open-webui:main
     container_name: ai-open-webui
     restart: unless-stopped
+    depends_on:
+      - litellm
     ports:
       - "3000:8080"
     environment:
-      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      OPENAI_API_BASE_URL: http://litellm:4000/v1
+      OPENAI_API_KEY: ${LITELLM_MASTER_KEY}
     volumes:
       - openwebui_data:/app/backend/data
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
 
 volumes:
   postgres_data:
