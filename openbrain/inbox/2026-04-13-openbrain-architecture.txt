@@ -1,0 +1,102 @@
+# OpenBrain Architecture
+
+Date: 2026-04-13
+Category: project_note
+Source: manual_note
+Tags: openbrain, architecture, n8n, ollama, pgvector, memory
+
+OpenBrain is a self-hosted memory and reasoning system built on top of n8n, Ollama, PostgreSQL, and pgvector.
+
+## Goal
+
+The purpose of OpenBrain is to ingest notes, conversations, project updates, and future documents into a searchable long-term memory system. The system should be able to:
+
+* Store memories automatically
+* Search semantically using embeddings
+* Retrieve relevant memories during future prompts
+* Support future project organization and agent workflows
+
+## Core Stack
+
+* n8n running locally in Docker Desktop
+* Ollama for local LLMs and embedding generation
+* PostgreSQL with pgvector extension enabled
+* Webhook-based ingestion and retrieval endpoints
+
+## Current Models
+
+* Embedding model: nomic-embed-text
+* Initial response model: llama3
+* Future possibility: gpt-oss or other local models
+
+## Database Design
+
+Table: memories
+
+Columns:
+
+* id
+* created_at
+* updated_at
+* source
+* category
+* title
+* content
+* tags
+* metadata_json
+* embedding
+
+The embedding column uses pgvector with 1536 dimensions.
+
+Important indexes:
+
+* source index
+* category index
+* created_at descending index
+* GIN index on tags
+* GIN index on metadata_json
+* vector similarity index planned later
+
+## Current Workflow
+
+1. A note is sent to the n8n webhook /webhook/openbrain-ingest
+2. n8n validates the payload
+3. The note content is sent to Ollama using nomic-embed-text
+4. The returned embedding is stored in PostgreSQL together with the original content
+5. Future queries are sent to /webhook/openbrain-generate
+6. The query is embedded using the same embedding model
+7. PostgreSQL pgvector similarity search retrieves the closest memories
+8. The matched memories are provided to llama3 to generate an answer
+
+## Example Ingestion Payload
+
+{
+"source": "manual_note",
+"category": "project_note",
+"title": "OpenBrain architecture idea",
+"content": "I want OpenBrain to ingest my notes automatically into memories.",
+"tags": ["openbrain", "memory", "architecture"]
+}
+
+## Near-Term Priorities
+
+1. Finish the core memory ingestion pipeline
+2. Add pgvector similarity queries
+3. Return multiple relevant memories instead of only one
+4. Add metadata filtering by category and tags
+5. Add project-aware memory grouping
+6. Add document and transcript ingestion
+7. Add a future UI for viewing and editing stored memories
+
+## Longer-Term Vision
+
+OpenBrain should eventually become the long-term memory layer for the broader AI Lab. It can support:
+
+* Crispy Market Sentinel memory and analysis
+* Project notes for Droidhead and Crispy Biscuits AI
+* Meeting and transcript ingestion
+* Personal research and learning notes
+* Agent memory for future n8n and multi-agent workflows
+
+The architecture is intentionally modular so that the embedding model, language model, and storage layer can all be replaced later without redesigning the rest of the system.
+
