@@ -66,6 +66,7 @@ services:
       GENERIC_TIMEZONE: America/Los_Angeles
       OLLAMA_HOST: http://host.docker.internal:11434
       NODE_FUNCTION_ALLOW_BUILTIN: "*"
+      NODES_EXCLUDE: "[]"
     volumes:
       - n8n_data:/home/node/.n8n
       - ~/repos/ai-lab/openbrain/inbox:/data/openbrain/inbox
