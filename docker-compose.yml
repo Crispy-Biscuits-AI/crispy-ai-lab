@@ -69,7 +69,7 @@ services:
       NODES_EXCLUDE: "[]"
     volumes:
       - n8n_data:/home/node/.n8n
-      - ~/repos/ai-lab/openbrain/inbox:/data/openbrain/inbox
+      - /Users/elric/repos/ai-lab/openbrain/inbox:/home/node/.n8n-files/openbrain/inbox
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
