@@ -1,14 +1,14 @@
-# crispy-labs
+# crispy-ai-lab
 
-`crispy-labs` is a small self-hosted AI lab repository centered on a local Docker Compose stack. The current repo is mostly infrastructure and configuration: it wires together PostgreSQL with `pgvector`, Qdrant, LiteLLM, n8n, Open WebUI, OpenClaw, and a small `openbrain` memory schema and seed dataset.
+`crispy-ai-lab` is a small self-hosted AI lab repository centered on a local Docker Compose stack. The current repo is mostly infrastructure and configuration: it wires together PostgreSQL with `pgvector`, Qdrant, LiteLLM, n8n, Open WebUI, OpenClaw, and a small CrispyBrain memory schema and seed dataset.
 
 ## What's in this repo
 
 - `docker-compose.yml`: the main local stack definition
 - `litellm-config.yaml`: LiteLLM model routing config for a local Ollama-backed model
 - `openclaw.json`: OpenClaw gateway and model provider configuration
-- `postgres/init/001-openbrain.sql`: PostgreSQL schema for the `openbrain` memory store, including `vector` support
-- `openbrain/inbox/openbrain-seed-memories.txt`: seed content for local memory-ingestion experiments
+- `postgres/init/001-openbrain.sql`: PostgreSQL schema for the CrispyBrain memory store, including `vector` support
+- `openbrain/inbox/openbrain-seed-memories.txt`: seed content for CrispyBrain memory-ingestion experiments
 
 ## Current status
 
@@ -37,4 +37,4 @@ Useful files to inspect before starting:
 
 ## Notes
 
-This repository was previously named `ai-lab` and has since been renamed to `crispy-labs`.
+This repository was previously named `ai-lab`, then `crispy-labs`, and is now `crispy-ai-lab`.

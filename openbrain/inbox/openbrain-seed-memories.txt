@@ -1,26 +1,26 @@
-OpenBrain Seed Memories
+CrispyBrain Seed Memories
 
 Created: 2026-04-15
 
 Purpose
 
-This file seeds the OpenBrain v0.1 memory system with a small set of
+This file seeds the CrispyBrain v0.1 memory system with a small set of
 foundational memories for testing ingestion, chunking, embeddings,
 duplicate detection, and retrieval.
 
 Memory 1
 
-OpenBrain is being built incrementally in n8n running locally in Docker
+CrispyBrain is being built incrementally in n8n running locally in Docker
 Desktop.
 
 Memory 2
 
-The OpenBrain stack uses Ollama locally together with Postgres and
+The CrispyBrain stack uses Ollama locally together with Postgres and
 pgvector.
 
 Memory 3
 
-The OpenBrain ingest pipeline should: - detect new text files - avoid
+The CrispyBrain ingest pipeline should: - detect new text files - avoid
 duplicate processing - split content into chunks - generate embeddings -
 store chunk metadata in Postgres
 
@@ -37,12 +37,12 @@ again
 
 Memory 6
 
-OpenBrain v0.1 intentionally stops after ingestion, embeddings, and
+CrispyBrain v0.1 intentionally stops after ingestion, embeddings, and
 duplicate protection. Memory assembly and answer generation are planned
 for a later phase.
 
 Memory 7
 
-The next planned OpenBrain stages are: 1. openbrain-build-context 2.
+The next planned CrispyBrain stages are: 1. openbrain-build-context 2.
 openbrain-answer-from-memory 3. openbrain-validation-and-errors 4.
 openbrain-project-memory
