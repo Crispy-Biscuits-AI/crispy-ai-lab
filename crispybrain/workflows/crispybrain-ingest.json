@@ -1,0 +1,359 @@
+[
+  {
+    "updatedAt": "2026-04-18T01:31:38.049Z",
+    "createdAt": "2026-04-17T23:43:53.495Z",
+    "id": "crispybrain-ingest",
+    "name": "crispybrain-ingest",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+      {
+        "id": "webhook-crispybrain-ingest",
+        "name": "Ingest Webhook",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          -1040,
+          0
+        ],
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "crispybrain-ingest",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "webhookId": "crispybrain-ingest"
+      },
+      {
+        "id": "code-normalize-ingest",
+        "name": "Normalize Input",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -820,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const payload = ($json.body && typeof $json.body === 'object') ? $json.body : $json;\nconst filepath = typeof payload.filepath === 'string' ? payload.filepath.trim() : '';\nconst filename = typeof payload.filename === 'string' && payload.filename.trim() ? payload.filename.trim() : (filepath ? filepath.split('/').pop() : 'inline-memory.txt');\nconst content = typeof payload.content === 'string' ? payload.content : '';\nconst modifiedEpoch = payload.modifiedEpoch !== undefined && payload.modifiedEpoch !== null ? Number(payload.modifiedEpoch) : null;\nconst projectSlug = typeof payload.project_slug === 'string' && payload.project_slug.trim() ? payload.project_slug.trim() : null;\nconst rawSource = payload.source;\nconst sourceInfo = typeof rawSource === 'string' ? { kind: rawSource.trim() || 'manual_ingest', label: rawSource.trim() || 'manual_ingest', path: filepath || null, note: null } : (rawSource && typeof rawSource === 'object' ? (() => { const kind = typeof rawSource.kind === 'string' && rawSource.kind.trim() ? rawSource.kind.trim() : 'manual_ingest'; const label = typeof rawSource.label === 'string' && rawSource.label.trim() ? rawSource.label.trim() : kind; return { kind, label, path: typeof rawSource.path === 'string' && rawSource.path.trim() ? rawSource.path.trim() : (filepath || null), note: typeof rawSource.note === 'string' && rawSource.note.trim() ? rawSource.note.trim() : null }; })() : { kind: 'manual_ingest', label: 'manual_ingest', path: filepath || null, note: null });\nconst requestedCategory = typeof payload.category === 'string' && payload.category.trim() ? payload.category.trim() : 'project_note';\nconst errors = [];\nif (!filepath && !content.trim()) errors.push('Provide filepath and/or content');\nif (payload.filepath !== undefined && typeof payload.filepath !== 'string') errors.push('filepath must be a string when provided');\nif (payload.content !== undefined && typeof payload.content !== 'string') errors.push('content must be a string when provided');\nif (payload.project_slug !== undefined && payload.project_slug !== null && typeof payload.project_slug !== 'string') errors.push('project_slug must be a string when provided');\nif (!content.trim()) errors.push('content is required for crispybrain-ingest');\nif (errors.length > 0) return [{ json: { request_ok: false, ok: false, error: { code: 'INVALID_INGEST_INPUT', message: errors.join('; ') }, filepath: filepath || null, filename, project_slug: projectSlug, inserted_count: 0, total_chunks: 0 } }];\nreturn [{ json: { request_ok: true, filepath: filepath || `inline://${filename}`, filename, content, modifiedEpoch, projectSlug, source: sourceInfo.label, sourceInfo, category: requestedCategory, requestedCategory, ingestedAt: new Date().toISOString() } }];\n"
+        }
+      },
+      {
+        "id": "if-ingest-request-ok",
+        "name": "Request Is Valid?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          -600,
+          0
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "cond-if-ingest-request-ok",
+                "leftValue": "={{ $json.request_ok === true }}",
+                "rightValue": true,
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "code-build-ingest-error",
+        "name": "Build Validation Error",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -380,
+          120
+        ],
+        "parameters": {
+          "jsCode": "return [{ json: { ok: false, error: $json.error, filepath: $json.filepath, filename: $json.filename, project_slug: $json.project_slug ?? null, inserted_count: 0, total_chunks: 0 } }];\n"
+        }
+      },
+      {
+        "id": "code-chunk-content",
+        "name": "Chunk Content",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -380,
+          -120
+        ],
+        "parameters": {
+          "jsCode": "const data = $input.first().json;\nconst chunkSize = 1200;\nconst overlap = 200;\nconst normalize = (text) => text.replace(/\\r\\n/g, '\\n').replace(/\\t/g, '  ').trim();\nconst text = normalize(data.content || '');\nif (!text) throw new Error('Content is empty after normalization');\nconst chunks = [];\nlet start = 0;\nwhile (start < text.length) {\n  let end = Math.min(start + chunkSize, text.length);\n  if (end < text.length) {\n    const windowStart = Math.max(start + Math.floor(chunkSize * 0.6), start);\n    const boundarySlice = text.slice(windowStart, end);\n    const breakCandidates = [boundarySlice.lastIndexOf('\\n\\n'), boundarySlice.lastIndexOf('\\n'), boundarySlice.lastIndexOf('. '), boundarySlice.lastIndexOf(' ')].filter((idx) => idx > 0);\n    if (breakCandidates.length > 0) end = windowStart + Math.max(...breakCandidates) + 1;\n  }\n  const chunkText = text.slice(start, end).trim();\n  if (chunkText) chunks.push(chunkText);\n  if (end >= text.length) break;\n  start = Math.max(end - overlap, start + 1);\n}\nif (chunks.length === 0) throw new Error('Chunking produced zero chunks');\nif (chunks.length > 200) throw new Error(`Refusing to embed ${chunks.length} chunks in one run`);\nreturn [{ json: { ...data, totalChunks: chunks.length, chunks: chunks.map((chunkText, index) => ({ chunkIndex: index + 1, totalChunks: chunks.length, title: `${data.filename} :: chunk ${String(index + 1).padStart(2, '0')}`, content: chunkText })) } }];\n"
+        }
+      },
+      {
+        "id": "code-build-embedding-batch",
+        "name": "Build Embedding Batch Request",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -160,
+          -120
+        ],
+        "parameters": {
+          "jsCode": "const { chunks, filepath, filename, modifiedEpoch, projectSlug, source, sourceInfo, category, requestedCategory, ingestedAt, totalChunks } = $input.first().json;\nif (!Array.isArray(chunks) || chunks.length === 0) throw new Error('Missing chunks array');\nreturn [{ json: { filepath, filename, modifiedEpoch, projectSlug, source, sourceInfo, category, requestedCategory, ingestedAt, totalChunks, chunks, inputs: chunks.map((chunk) => chunk.content) } }];\n"
+        }
+      },
+      {
+        "id": "http-embed-chunks",
+        "name": "Embed Chunks",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          60,
+          -120
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "http://host.docker.internal:11434/api/embed",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ model: \"nomic-embed-text\", input: $json.inputs }) }}",
+          "options": {
+            "response": {
+              "response": {
+                "fullResponse": true,
+                "neverError": true,
+                "responseFormat": "json"
+              }
+            },
+            "timeout": 300000
+          }
+        }
+      },
+      {
+        "id": "code-prepare-insert-query",
+        "name": "Prepare Insert Query",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          280,
+          -120
+        ],
+        "parameters": {
+          "jsCode": "const base = $('Build Embedding Batch Request').first().json;\nconst response = ($json.body && typeof $json.body === 'object') ? $json.body : $json;\nconst embeddings = Array.isArray(response.embeddings) ? response.embeddings : (Array.isArray(response.embedding) ? [response.embedding] : null);\nif (!Array.isArray(embeddings) || embeddings.length === 0) throw new Error('Embedding response missing embeddings[]');\nif (embeddings.length !== base.chunks.length) throw new Error(`Embedding count mismatch: got ${embeddings.length}, expected ${base.chunks.length}`);\nconst escapeSql = (value) => String(value ?? '').replace(/'/g, \"''\");\nconst values = base.chunks.map((chunk, index) => {\n  const embedding = embeddings[index];\n  if (!Array.isArray(embedding) || embedding.length === 0) throw new Error(`Embedding missing or invalid for chunk ${chunk.chunkIndex}`);\n  const metadata = { filename: base.filename, filepath: base.filepath, modified_epoch: base.modifiedEpoch, ingested_at: base.ingestedAt, project_slug: base.projectSlug, chunk_index: chunk.chunkIndex, total_chunks: chunk.totalChunks, source_label: base.source, source_info: base.sourceInfo, requested_category: base.requestedCategory ?? base.category };\n  const metadataSql = `'${escapeSql(JSON.stringify(metadata))}'::jsonb`;\n  const embeddingSql = `'[${embedding.join(',')}]'::vector`;\n  const categorySql = `(SELECT COALESCE((SELECT name FROM memory_categories WHERE name = '${escapeSql(base.category)}'), 'project_note'))`;\n  return `('${escapeSql(base.source)}',${categorySql},'${escapeSql(chunk.title)}','${escapeSql(chunk.content)}',ARRAY['crispybrain','chunked']::text[],${metadataSql},${embeddingSql})`;\n});\nconst query = `\nINSERT INTO memories (source, category, title, content, tags, metadata_json, embedding)\nVALUES\n${values.join(',\\n')}\nRETURNING id, title, source, category, created_at;\n`;\nreturn [{ json: { filepath: base.filepath, filename: base.filename, projectSlug: base.projectSlug, totalChunks: base.totalChunks, source: base.source, query } }];\n"
+        }
+      },
+      {
+        "id": "pg-insert-memory-rows",
+        "name": "Insert Memory Rows",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.6,
+        "position": [
+          500,
+          -120
+        ],
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "={{$json.query}}",
+          "options": {}
+        },
+        "credentials": {
+          "postgres": {
+            "id": "j60Gpt1oeRVTUCH2",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "id": "code-return-ingest-success",
+        "name": "Return Success Payload",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          720,
+          -120
+        ],
+        "parameters": {
+          "jsCode": "const inserted = $input.all();\nconst base = $('Prepare Insert Query').first().json;\nconst toIso = (value) => {\n  if (value === null || value === undefined || value === '') return null;\n  if (typeof value === 'string') return value;\n  const safeDate = value instanceof Date ? value : new Date(value);\n  return Number.isNaN(safeDate.getTime()) ? null : safeDate.toISOString();\n};\nreturn [{ json: { ok: true, filepath: base.filepath, filename: base.filename, project_slug: base.projectSlug, source: base.source, inserted_count: inserted.length, total_chunks: base.totalChunks, inserted_rows: inserted.map((item) => ({ id: item.json.id, title: item.json.title, source: item.json.source, category: item.json.category, created_at: toIso(item.json.created_at) })) } }];\n"
+        }
+      },
+      {
+        "id": "respond-ingest-result",
+        "name": "Respond Ingest Result",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.3,
+        "position": [
+          940,
+          0
+        ],
+        "parameters": {
+          "respondWith": "firstIncomingItem",
+          "options": {}
+        }
+      }
+    ],
+    "connections": {
+      "Ingest Webhook": {
+        "main": [
+          [
+            {
+              "node": "Normalize Input",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Normalize Input": {
+        "main": [
+          [
+            {
+              "node": "Request Is Valid?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Request Is Valid?": {
+        "main": [
+          [
+            {
+              "node": "Chunk Content",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Build Validation Error",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Chunk Content": {
+        "main": [
+          [
+            {
+              "node": "Build Embedding Batch Request",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build Embedding Batch Request": {
+        "main": [
+          [
+            {
+              "node": "Embed Chunks",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Embed Chunks": {
+        "main": [
+          [
+            {
+              "node": "Prepare Insert Query",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Prepare Insert Query": {
+        "main": [
+          [
+            {
+              "node": "Insert Memory Rows",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Insert Memory Rows": {
+        "main": [
+          [
+            {
+              "node": "Return Success Payload",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Return Success Payload": {
+        "main": [
+          [
+            {
+              "node": "Respond Ingest Result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build Validation Error": {
+        "main": [
+          [
+            {
+              "node": "Respond Ingest Result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1"
+    },
+    "staticData": {},
+    "meta": {
+      "templateCredsSetupCompleted": true
+    },
+    "pinData": {},
+    "versionId": "a0615ff0-4cbc-4822-9686-1d1b2e76073c",
+    "activeVersionId": "a0615ff0-4cbc-4822-9686-1d1b2e76073c",
+    "versionCounter": 72,
+    "triggerCount": 1,
+    "tags": [],
+    "shared": [
+      {
+        "updatedAt": "2026-04-17T23:43:53.495Z",
+        "createdAt": "2026-04-17T23:43:53.495Z",
+        "role": "workflow:owner",
+        "workflowId": "crispybrain-ingest",
+        "projectId": "VKNG4UDqz7QGgAET",
+        "project": {
+          "updatedAt": "2026-03-14T17:19:30.239Z",
+          "createdAt": "2026-03-14T17:09:24.875Z",
+          "id": "VKNG4UDqz7QGgAET",
+          "name": " Berry Sizemore <n8n.unlaced397@passmail.net>",
+          "type": "personal",
+          "icon": null,
+          "description": null,
+          "creatorId": "743be296-a176-4403-9a7d-383386f972db"
+        }
+      }
+    ],
+    "versionMetadata": {
+      "name": null,
+      "description": null
+    }
+  }
+]

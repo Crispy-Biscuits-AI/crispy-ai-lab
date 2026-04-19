@@ -1,0 +1,519 @@
+[
+  {
+    "updatedAt": "2026-04-18T01:31:35.648Z",
+    "createdAt": "2026-04-17T23:45:00.312Z",
+    "id": "crispybrain-assistant",
+    "name": "crispybrain-assistant",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+      {
+        "id": "webhook-crispybrain-assistant",
+        "name": "Assistant Webhook",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          -1220,
+          0
+        ],
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "crispybrain-assistant",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "webhookId": "crispybrain-assistant"
+      },
+      {
+        "id": "code-normalize-assistant-request",
+        "name": "Normalize Assistant Request",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -1000,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const payload = ($json.body && typeof $json.body === 'object') ? $json.body : $json;\nconst rawQuery = typeof payload.message === 'string' ? payload.message : payload.query;\nconst rawProjectSlug = payload.project_slug;\nconst rawSessionId = payload.session_id;\nconst rawTopK = payload.top_k;\nconst buildError = (code, message) => [{ json: { ok: false, error: { code, message }, query: null, session_id: null, project_slug: null, top_k: null, retrieval: { strategy: 'project-first-fallback-general', project_match_count: 0, general_match_count: 0, memory_count: 0, strongest_similarity: null, similarity_threshold: 0.72, empty: true }, sources: [], context_preview: '', trace: { workflow_chain: ['crispybrain-assistant'], stage: 'validation' }, session: { turn_count_before: 0, history_used: false, stored: false } } }];\nif (typeof rawQuery !== 'string' || rawQuery.trim() === '') return buildError('INVALID_INPUT', 'Missing or invalid query/message');\nif (rawProjectSlug !== undefined && rawProjectSlug !== null && typeof rawProjectSlug !== 'string') return buildError('INVALID_PROJECT_SLUG', 'project_slug must be a string when provided');\nif (rawSessionId !== undefined && rawSessionId !== null && typeof rawSessionId !== 'string') return buildError('INVALID_SESSION_ID', 'session_id must be a string when provided');\nif (rawTopK !== undefined && rawTopK !== null && (!Number.isInteger(rawTopK) || rawTopK < 1 || rawTopK > 8)) return buildError('INVALID_TOP_K', 'top_k must be an integer between 1 and 8');\nconst sessionId = typeof rawSessionId === 'string' && rawSessionId.trim() !== '' ? rawSessionId.trim() : `crispybrain-session-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;\nreturn [{ json: { request_ok: true, query: rawQuery.trim(), session_id: sessionId, project_slug: typeof rawProjectSlug === 'string' && rawProjectSlug.trim() ? rawProjectSlug.trim() : null, top_k: Number.isInteger(rawTopK) ? rawTopK : 5, retrieval_strategy: 'project-first-fallback-general', requested_at: new Date().toISOString() } }];\n"
+        }
+      },
+      {
+        "id": "if-assistant-request-ok",
+        "name": "Request Is Valid?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          -780,
+          0
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "cond-if-assistant-request-ok",
+                "leftValue": "={{ $json.request_ok === true }}",
+                "rightValue": true,
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "pg-load-session-turns",
+        "name": "Load Session Turns",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.6,
+        "position": [
+          -560,
+          -90
+        ],
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "SELECT COALESCE(\n  jsonb_agg(row_to_json(turns) ORDER BY turns.created_at),\n  '[]'::jsonb\n) AS session_turns\nFROM (\n  SELECT role, message_text, project_slug, created_at, metadata_json\n  FROM (\n    SELECT role, message_text, project_slug, created_at, metadata_json\n    FROM openbrain_chat_turns\n    WHERE session_id = $1::text\n    ORDER BY created_at DESC\n    LIMIT 6\n  ) recent\n  ORDER BY created_at ASC\n) turns;\n",
+          "options": {
+            "queryReplacement": "={{ [$json.session_id] }}"
+          }
+        },
+        "credentials": {
+          "postgres": {
+            "id": "j60Gpt1oeRVTUCH2",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "id": "code-build-context-request",
+        "name": "Build Context Request",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -340,
+          -90
+        ],
+        "parameters": {
+          "jsCode": "const request = $('Normalize Assistant Request').first().json;\nconst rawSessionTurns = $('Load Session Turns').first().json.session_turns ?? [];\nconst toIso = (value) => {\n  if (value === null || value === undefined || value === '') return null;\n  if (typeof value === 'string') return value;\n  const safeDate = value instanceof Date ? value : new Date(value);\n  return Number.isNaN(safeDate.getTime()) ? null : safeDate.toISOString();\n};\nconst sessionTurns = Array.isArray(rawSessionTurns) ? rawSessionTurns.map((turn) => ({\n  role: turn?.role === 'assistant' ? 'assistant' : 'user',\n  message_text: typeof turn?.message_text === 'string' ? turn.message_text : '',\n  project_slug: typeof turn?.project_slug === 'string' && turn.project_slug.trim() ? turn.project_slug.trim() : null,\n  created_at: toIso(turn?.created_at),\n  metadata_json: turn?.metadata_json ?? null\n})).filter((turn) => turn.message_text) : [];\nreturn [{ json: { body: { query: request.query, project_slug: request.project_slug, top_k: request.top_k, session_id: request.session_id, session_turns: sessionTurns, request_source: 'crispybrain-assistant' } } }];\n"
+        }
+      },
+      {
+        "id": "http-call-build-context",
+        "name": "Call Build Context Workflow",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -120,
+          -90
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "http://127.0.0.1:5678/webhook/crispybrain-build-context",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify($json.body) }}",
+          "options": {
+            "response": {
+              "response": {
+                "fullResponse": true,
+                "neverError": true,
+                "responseFormat": "json"
+              }
+            },
+            "timeout": 300000
+          }
+        }
+      },
+      {
+        "id": "code-prepare-context-result",
+        "name": "Prepare Context Result",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          100,
+          -90
+        ],
+        "parameters": {
+          "jsCode": "const request = $('Normalize Assistant Request').first().json;\nconst sessionTurns = $('Load Session Turns').first().json.session_turns ?? [];\nconst statusCode = $json.statusCode ?? 0;\nconst body = $json.body ?? {};\nif (statusCode < 200 || statusCode >= 300 || body.ok !== true || !body.context_bundle) {\n  return [{ json: { ok: false, query: request.query, session_id: request.session_id, project_slug: request.project_slug, top_k: request.top_k, retrieval: { strategy: request.retrieval_strategy, project_match_count: 0, general_match_count: 0, memory_count: 0, strongest_similarity: null, similarity_threshold: 0.72, empty: true }, sources: [], context_preview: '', trace: { workflow_chain: ['crispybrain-assistant', 'crispybrain-build-context'], stage: 'build-context', status_code: statusCode || null, details: body.error ?? body ?? null }, error: { code: 'BUILD_CONTEXT_FAILED', message: 'crispybrain-build-context did not return a valid context bundle', status: statusCode || null }, session: { turn_count_before: Array.isArray(sessionTurns) ? sessionTurns.length : 0, history_used: Array.isArray(sessionTurns) ? sessionTurns.length > 0 : false, stored: false }, answer: 'CrispyBrain could not build memory context for this request.' } }];\n}\nreturn [{ json: { context_ready: true, query: request.query, session_id: request.session_id, project_slug: request.project_slug, top_k: request.top_k, context_bundle: body.context_bundle, retrieval: body.retrieval ?? body.context_bundle.retrieval, sources: body.sources ?? body.context_bundle.sources ?? [], context_preview: body.context_preview ?? body.context_bundle.context_preview ?? '', trace: { workflow_chain: ['crispybrain-assistant', 'crispybrain-build-context'], stage: 'build-context' }, session: body.session ?? body.context_bundle.session ?? { turn_count_before: Array.isArray(sessionTurns) ? sessionTurns.length : 0, history_used: Array.isArray(sessionTurns) ? sessionTurns.length > 0 : false, stored: false } } }];\n"
+        }
+      },
+      {
+        "id": "if-context-ready",
+        "name": "Context Ready?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          320,
+          -90
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "cond-if-context-ready",
+                "leftValue": "={{ $json.context_ready === true }}",
+                "rightValue": true,
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "code-build-answer-request",
+        "name": "Build Answer Request",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          540,
+          -180
+        ],
+        "parameters": {
+          "jsCode": "const bundle = $json.context_bundle ?? {};\nconst sessionTurns = Array.isArray(bundle.session_turns) ? bundle.session_turns : [];\nconst hasSessionHistory = ($json.session?.history_used === true) || (($json.session?.turn_count_before ?? 0) > 0) || sessionTurns.length > 0;\nconst retrieval = $json.retrieval ?? bundle.retrieval ?? { memory_count: 0, empty: true };\nconst memoryCount = Number(retrieval.memory_count ?? 0);\nif (memoryCount > 0) {\n  return [{ json: { body: { query: $json.query, project_slug: $json.project_slug, session_id: $json.session_id, top_k: $json.top_k, context_bundle: bundle, request_source: 'crispybrain-assistant' } } }];\n}\nif (hasSessionHistory) {\n  const sessionHistory = sessionTurns.map((turn) => `${turn.role === 'assistant' ? 'Assistant' : 'User'}: ${turn.message_text}`).join('\\n');\n  const context = `Session history:\\n${sessionHistory}`;\n  const prompt = [\n    'You are CrispyBrain, a local project-aware memory assistant.',\n    'No retrieved memory matched this follow-up, so answer using the prior session history only.',\n    $json.project_slug ? `Requested project_slug: ${$json.project_slug}` : null,\n    `Recent session turns:\\n${sessionHistory}`,\n    `User question:\\n${$json.query}`,\n    'Respond in concise plain text and do not invent facts beyond the session history.'\n  ].filter(Boolean).join('\\n\\n');\n  const contextBundle = {\n    ...bundle,\n    query: $json.query,\n    project_slug: $json.project_slug ?? null,\n    top_k: $json.top_k,\n    retrieval: { ...retrieval, strategy: 'session-history-fallback', empty: false, memory_count: 0 },\n    sources: [],\n    context,\n    context_preview: context.slice(0, 280),\n    prompt,\n    session: { ...($json.session ?? bundle.session ?? {}), history_used: true, stored: false },\n    session_turns: sessionTurns,\n    trace: { ...(bundle.trace ?? {}), workflow_chain: ['crispybrain-assistant', 'crispybrain-build-context', 'session-history-fallback'] }\n  };\n  return [{ json: { body: { query: $json.query, project_slug: $json.project_slug, session_id: $json.session_id, top_k: $json.top_k, context_bundle: contextBundle, request_source: 'crispybrain-assistant' } } }];\n}\nreturn [{ json: { body: { query: $json.query, project_slug: $json.project_slug, session_id: $json.session_id, top_k: $json.top_k, context_bundle: bundle, request_source: 'crispybrain-assistant' } } }];\n"
+        }
+      },
+      {
+        "id": "http-call-answer",
+        "name": "Call Answer Workflow",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          760,
+          -180
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "http://127.0.0.1:5678/webhook/crispybrain-answer-from-memory",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify($json.body) }}",
+          "options": {
+            "response": {
+              "response": {
+                "fullResponse": true,
+                "neverError": true,
+                "responseFormat": "json"
+              }
+            },
+            "timeout": 300000
+          }
+        }
+      },
+      {
+        "id": "code-prepare-final-response",
+        "name": "Prepare Final Response",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          980,
+          -180
+        ],
+        "parameters": {
+          "jsCode": "const base = $('Prepare Context Result').first().json;\nconst statusCode = $json.statusCode ?? 0;\nconst body = $json.body ?? {};\nif (statusCode < 200 || statusCode >= 300 || body.ok !== true || typeof body.answer !== 'string' || body.answer.trim() === '') {\n  return [{ json: { ok: false, query: base.query, session_id: base.session_id, project_slug: base.project_slug, top_k: base.top_k, retrieval: base.retrieval, sources: base.sources, context_preview: base.context_preview, trace: { workflow_chain: ['crispybrain-assistant', 'crispybrain-build-context', 'crispybrain-answer-from-memory'], stage: 'answer-from-memory', status_code: statusCode || null, details: body.error ?? body ?? null }, error: { code: 'ANSWER_FROM_MEMORY_FAILED', message: 'crispybrain-answer-from-memory did not return a usable answer payload', status: statusCode || null }, session: base.session, answer: 'CrispyBrain could not finish the answer from memory.' } }];\n}\nconst session = body.session ?? base.session ?? { turn_count_before: 0, history_used: false, stored: false };\nif ((body.retrieval?.memory_count ?? 0) === 0 && body.retrieval?.empty === true && !(session.history_used === true || (session.turn_count_before ?? 0) > 0)) {\n  return [{ json: { ok: false, query: base.query, session_id: base.session_id, project_slug: base.project_slug, top_k: base.top_k, retrieval: body.retrieval ?? base.retrieval, sources: [], context_preview: body.context_preview ?? base.context_preview, trace: { workflow_chain: ['crispybrain-assistant', 'crispybrain-build-context', 'crispybrain-answer-from-memory'], ...(body.trace ?? {}), stage: 'no-memory-or-session' }, error: { code: 'NO_MEMORY_OR_SESSION_CONTEXT', message: 'CrispyBrain could not answer because no stored memory or prior session history was available.' }, session: { turn_count_before: session.turn_count_before ?? 0, history_used: session.history_used === true, stored: false }, answer: 'CrispyBrain could not find stored memory or session context for this request.' } }];\n}\nreturn [{ json: { ...body, query: body.query ?? base.query, session_id: base.session_id, project_slug: body.project_slug ?? base.project_slug, top_k: body.top_k ?? base.top_k, retrieval: body.retrieval ?? base.retrieval, sources: body.sources ?? base.sources, context_preview: body.context_preview ?? base.context_preview, session: { turn_count_before: session.turn_count_before ?? 0, history_used: session.history_used === true, stored: false }, trace: { workflow_chain: ['crispybrain-assistant', 'crispybrain-build-context', 'crispybrain-answer-from-memory'], ...(body.trace ?? {}) } } }];\n"
+        }
+      },
+      {
+        "id": "pg-store-user-turn",
+        "name": "Store User Turn",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.6,
+        "position": [
+          1220,
+          -40
+        ],
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "INSERT INTO openbrain_chat_turns (\n  session_id,\n  role,\n  message_text,\n  project_slug,\n  metadata_json\n)\nVALUES (\n  $1::text,\n  'user',\n  $2::text,\n  NULLIF($3::text, ''),\n  $4::jsonb\n)\nRETURNING\n  id,\n  $1::text AS session_id,\n  NULLIF($3::text, '') AS project_slug,\n  $5::text AS answer_text,\n  ($6::jsonb)::text AS assistant_metadata_json_text,\n  ($7::jsonb)::text AS response_json_text;\n",
+          "options": {
+            "queryReplacement": "={{ [$json.session_id, $json.query, $json.project_slug || \"\", JSON.stringify({ top_k: $json.top_k, request_source: \"crispybrain-assistant\", trace: $json.trace || null }), $json.answer || $json.error?.message || \"CrispyBrain assistant request failed.\", JSON.stringify({ ok: $json.ok, query: $json.query, retrieval: $json.retrieval, source_count: Array.isArray($json.sources) ? $json.sources.length : 0, error: $json.error || null }), JSON.stringify($json)] }}"
+          }
+        },
+        "credentials": {
+          "postgres": {
+            "id": "j60Gpt1oeRVTUCH2",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "id": "pg-store-assistant-turn",
+        "name": "Store Assistant Turn",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.6,
+        "position": [
+          1440,
+          -40
+        ],
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "INSERT INTO openbrain_chat_turns (\n  session_id,\n  role,\n  message_text,\n  project_slug,\n  metadata_json\n)\nVALUES (\n  $1::text,\n  'assistant',\n  $2::text,\n  NULLIF($3::text, ''),\n  $4::jsonb\n)\nRETURNING id, ($5::jsonb)::text AS response_json_text;\n",
+          "options": {
+            "queryReplacement": "={{ [$json.session_id, $json.answer_text, $json.project_slug || \"\", $json.assistant_metadata_json_text, $json.response_json_text] }}"
+          }
+        },
+        "credentials": {
+          "postgres": {
+            "id": "j60Gpt1oeRVTUCH2",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "id": "code-return-assistant-response",
+        "name": "Return Assistant Response",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1660,
+          -40
+        ],
+        "parameters": {
+          "jsCode": "const response = typeof $json.response_json_text === 'string' ? JSON.parse($json.response_json_text) : $json;\nconst session = response.session ?? { turn_count_before: 0, history_used: false, stored: false };\nreturn [{ json: { ...response, session: { ...session, stored: true, turn_count_after: (session.turn_count_before ?? 0) + 2 } } }];\n"
+        }
+      },
+      {
+        "id": "respond-assistant-result",
+        "name": "Respond Assistant Result",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.3,
+        "position": [
+          1880,
+          0
+        ],
+        "parameters": {
+          "respondWith": "firstIncomingItem",
+          "options": {}
+        }
+      }
+    ],
+    "connections": {
+      "Assistant Webhook": {
+        "main": [
+          [
+            {
+              "node": "Normalize Assistant Request",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Normalize Assistant Request": {
+        "main": [
+          [
+            {
+              "node": "Request Is Valid?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Request Is Valid?": {
+        "main": [
+          [
+            {
+              "node": "Load Session Turns",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Respond Assistant Result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Load Session Turns": {
+        "main": [
+          [
+            {
+              "node": "Build Context Request",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build Context Request": {
+        "main": [
+          [
+            {
+              "node": "Call Build Context Workflow",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Call Build Context Workflow": {
+        "main": [
+          [
+            {
+              "node": "Prepare Context Result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Prepare Context Result": {
+        "main": [
+          [
+            {
+              "node": "Context Ready?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Context Ready?": {
+        "main": [
+          [
+            {
+              "node": "Build Answer Request",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Store User Turn",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build Answer Request": {
+        "main": [
+          [
+            {
+              "node": "Call Answer Workflow",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Call Answer Workflow": {
+        "main": [
+          [
+            {
+              "node": "Prepare Final Response",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Prepare Final Response": {
+        "main": [
+          [
+            {
+              "node": "Store User Turn",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Store User Turn": {
+        "main": [
+          [
+            {
+              "node": "Store Assistant Turn",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Store Assistant Turn": {
+        "main": [
+          [
+            {
+              "node": "Return Assistant Response",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Return Assistant Response": {
+        "main": [
+          [
+            {
+              "node": "Respond Assistant Result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1"
+    },
+    "staticData": {},
+    "meta": {
+      "templateCredsSetupCompleted": true
+    },
+    "pinData": {},
+    "versionId": "a6051e23-bf2d-4ca2-b05b-c6fbf4955ed5",
+    "activeVersionId": "a6051e23-bf2d-4ca2-b05b-c6fbf4955ed5",
+    "versionCounter": 74,
+    "triggerCount": 1,
+    "tags": [],
+    "shared": [
+      {
+        "updatedAt": "2026-04-17T23:45:00.312Z",
+        "createdAt": "2026-04-17T23:45:00.312Z",
+        "role": "workflow:owner",
+        "workflowId": "crispybrain-assistant",
+        "projectId": "VKNG4UDqz7QGgAET",
+        "project": {
+          "updatedAt": "2026-03-14T17:19:30.239Z",
+          "createdAt": "2026-03-14T17:09:24.875Z",
+          "id": "VKNG4UDqz7QGgAET",
+          "name": " Berry Sizemore <n8n.unlaced397@passmail.net>",
+          "type": "personal",
+          "icon": null,
+          "description": null,
+          "creatorId": "743be296-a176-4403-9a7d-383386f972db"
+        }
+      }
+    ],
+    "versionMetadata": {
+      "name": null,
+      "description": null
+    }
+  }
+]

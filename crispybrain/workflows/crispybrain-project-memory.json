@@ -1,0 +1,117 @@
+[
+  {
+    "updatedAt": "2026-04-18T00:10:21.594Z",
+    "createdAt": "2026-04-17T23:43:52.141Z",
+    "id": "crispybrain-project-memory",
+    "name": "crispybrain-project-memory",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+      {
+        "id": "webhook-crispybrain-project-memory",
+        "name": "Project Memory Webhook",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          -440,
+          0
+        ],
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "crispybrain-project-memory",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "webhookId": "crispybrain-project-memory"
+      },
+      {
+        "id": "code-normalize-project-memory-request",
+        "name": "Normalize Project Memory Request",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -200,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const payload = ($json.body && typeof $json.body === 'object') ? $json.body : $json;\nconst projectSlug = typeof payload.project_slug === 'string' && payload.project_slug.trim() ? payload.project_slug.trim() : '';\nif (!projectSlug) return [{ json: { ok: false, error: { code: 'INVALID_PROJECT_SLUG', message: 'project_slug is required for crispybrain-project-memory' } } }];\nconst source = typeof payload.source === 'string' && payload.source.trim() ? payload.source.trim() : null;\nconst filepath = typeof payload.filepath === 'string' && payload.filepath.trim() ? payload.filepath.trim() : null;\nreturn [{ json: { ok: true, project_slug: projectSlug, filters: { project_slug: projectSlug, include_general_fallback: payload.include_general_fallback === true }, metadata: { project_slug: projectSlug, source, filepath, requested_at: new Date().toISOString() } } }];\n"
+        }
+      },
+      {
+        "id": "respond-project-memory-result",
+        "name": "Respond Project Memory Result",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.3,
+        "position": [
+          40,
+          0
+        ],
+        "parameters": {
+          "respondWith": "firstIncomingItem",
+          "options": {}
+        }
+      }
+    ],
+    "connections": {
+      "Project Memory Webhook": {
+        "main": [
+          [
+            {
+              "node": "Normalize Project Memory Request",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Normalize Project Memory Request": {
+        "main": [
+          [
+            {
+              "node": "Respond Project Memory Result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1"
+    },
+    "staticData": {},
+    "meta": {
+      "templateCredsSetupCompleted": true
+    },
+    "pinData": {},
+    "versionId": "a9ee19d2-10b7-4a3d-9367-2e02e7c247ae",
+    "activeVersionId": "a9ee19d2-10b7-4a3d-9367-2e02e7c247ae",
+    "versionCounter": 68,
+    "triggerCount": 1,
+    "tags": [],
+    "shared": [
+      {
+        "updatedAt": "2026-04-17T23:43:52.141Z",
+        "createdAt": "2026-04-17T23:43:52.141Z",
+        "role": "workflow:owner",
+        "workflowId": "crispybrain-project-memory",
+        "projectId": "VKNG4UDqz7QGgAET",
+        "project": {
+          "updatedAt": "2026-03-14T17:19:30.239Z",
+          "createdAt": "2026-03-14T17:09:24.875Z",
+          "id": "VKNG4UDqz7QGgAET",
+          "name": " Berry Sizemore <n8n.unlaced397@passmail.net>",
+          "type": "personal",
+          "icon": null,
+          "description": null,
+          "creatorId": "743be296-a176-4403-9a7d-383386f972db"
+        }
+      }
+    ],
+    "versionMetadata": {
+      "name": null,
+      "description": null
+    }
+  }
+]

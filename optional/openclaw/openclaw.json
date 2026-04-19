@@ -1,0 +1,30 @@
+{
+  "gateway": {
+    "controlUi": {
+      "allowedOrigins": [
+        "http://localhost:8090",
+        "http://127.0.0.1:8090"
+      ]
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "ollama/llama3:latest"
+      },
+      "models": {
+        "ollama/llama3:latest": {
+          "alias": "Local Llama 3"
+        }
+      }
+    }
+  },
+  "models": {
+    "providers": {
+      "ollama": {
+        "baseUrl": "http://host.docker.internal:11434",
+        "api": "ollama"
+      }
+    }
+  }
+}

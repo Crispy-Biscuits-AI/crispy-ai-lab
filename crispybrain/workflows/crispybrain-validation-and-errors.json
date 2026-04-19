@@ -1,0 +1,117 @@
+[
+  {
+    "updatedAt": "2026-04-18T00:10:20.052Z",
+    "createdAt": "2026-04-17T23:43:50.685Z",
+    "id": "crispybrain-validation-and-errors",
+    "name": "crispybrain-validation-and-errors",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+      {
+        "id": "webhook-crispybrain-validation",
+        "name": "Validation Webhook",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          -440,
+          0
+        ],
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "crispybrain-validation-and-errors",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "webhookId": "crispybrain-validation-and-errors"
+      },
+      {
+        "id": "code-normalize-validation-request",
+        "name": "Normalize Validation Request",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -200,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const payload = ($json.body && typeof $json.body === 'object') ? $json.body : $json;\nconst mode = typeof payload.mode === 'string' && payload.mode.trim() ? payload.mode.trim() : 'assistant';\nconst input = payload.payload && typeof payload.payload === 'object' ? payload.payload : payload;\nconst errors = [];\nconst rawQuery = typeof input.message === 'string' ? input.message : input.query;\nif (['assistant', 'build-context', 'answer-from-memory'].includes(mode) && (typeof rawQuery !== 'string' || rawQuery.trim() === '')) errors.push('Missing or invalid query/message');\nif ((mode === 'assistant' || mode === 'build-context') && input.top_k !== undefined && input.top_k !== null && (!Number.isInteger(input.top_k) || input.top_k < 1 || input.top_k > 8)) errors.push('top_k must be an integer between 1 and 8');\nif ((mode === 'ingest' || mode === 'watch') && input.filepath === undefined && input.content === undefined) errors.push('Provide filepath and/or content');\nif (input.project_slug !== undefined && input.project_slug !== null && typeof input.project_slug !== 'string') errors.push('project_slug must be a string when provided');\nreturn [{ json: { ok: errors.length === 0, mode, normalized: { query: typeof rawQuery === 'string' ? rawQuery.trim() : null, project_slug: typeof input.project_slug === 'string' && input.project_slug.trim() ? input.project_slug.trim() : null, filepath: typeof input.filepath === 'string' && input.filepath.trim() ? input.filepath.trim() : null, has_content: typeof input.content === 'string' && input.content.trim() !== '', top_k: Number.isInteger(input.top_k) ? input.top_k : null }, error: errors.length === 0 ? null : { code: 'VALIDATION_FAILED', message: errors.join('; ') } } }];\n"
+        }
+      },
+      {
+        "id": "respond-validation-result",
+        "name": "Respond Validation Result",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.3,
+        "position": [
+          40,
+          0
+        ],
+        "parameters": {
+          "respondWith": "firstIncomingItem",
+          "options": {}
+        }
+      }
+    ],
+    "connections": {
+      "Validation Webhook": {
+        "main": [
+          [
+            {
+              "node": "Normalize Validation Request",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Normalize Validation Request": {
+        "main": [
+          [
+            {
+              "node": "Respond Validation Result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1"
+    },
+    "staticData": {},
+    "meta": {
+      "templateCredsSetupCompleted": true
+    },
+    "pinData": {},
+    "versionId": "fbe0b1a8-5a6e-496e-8241-ff978060ee3d",
+    "activeVersionId": "fbe0b1a8-5a6e-496e-8241-ff978060ee3d",
+    "versionCounter": 70,
+    "triggerCount": 1,
+    "tags": [],
+    "shared": [
+      {
+        "updatedAt": "2026-04-17T23:43:50.685Z",
+        "createdAt": "2026-04-17T23:43:50.685Z",
+        "role": "workflow:owner",
+        "workflowId": "crispybrain-validation-and-errors",
+        "projectId": "VKNG4UDqz7QGgAET",
+        "project": {
+          "updatedAt": "2026-03-14T17:19:30.239Z",
+          "createdAt": "2026-03-14T17:09:24.875Z",
+          "id": "VKNG4UDqz7QGgAET",
+          "name": " Berry Sizemore <n8n.unlaced397@passmail.net>",
+          "type": "personal",
+          "icon": null,
+          "description": null,
+          "creatorId": "743be296-a176-4403-9a7d-383386f972db"
+        }
+      }
+    ],
+    "versionMetadata": {
+      "name": null,
+      "description": null
+    }
+  }
+]

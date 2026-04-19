@@ -1,0 +1,306 @@
+[
+  {
+    "updatedAt": "2026-04-18T01:31:36.852Z",
+    "createdAt": "2026-04-17T23:44:57.564Z",
+    "id": "crispybrain-answer-from-memory",
+    "name": "crispybrain-answer-from-memory",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+      {
+        "id": "webhook-crispybrain-answer",
+        "name": "Answer From Memory Webhook",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          -760,
+          0
+        ],
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "crispybrain-answer-from-memory",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "webhookId": "crispybrain-answer-from-memory"
+      },
+      {
+        "id": "code-normalize-answer-request",
+        "name": "Normalize Answer Request",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -540,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const payload = ($json.body && typeof $json.body === 'object') ? $json.body : $json;\nconst bundle = payload.context_bundle && typeof payload.context_bundle === 'object' ? payload.context_bundle : payload;\nconst rawQuery = typeof payload.message === 'string' ? payload.message : (typeof payload.query === 'string' ? payload.query : bundle.query);\nconst buildError = (code, message) => [{ json: { ok: false, error: { code, message }, query: null, project_slug: null, top_k: null, retrieval: { strategy: 'project-first-fallback-general', project_match_count: 0, general_match_count: 0, memory_count: 0, strongest_similarity: null, similarity_threshold: 0.72, empty: true }, sources: [], context_preview: '', trace: { workflow_chain: ['crispybrain-answer-from-memory'], stage: 'validation' }, session: { turn_count_before: 0, history_used: false, stored: false } } }];\nif (typeof rawQuery !== 'string' || rawQuery.trim() === '') return buildError('INVALID_INPUT', 'Missing or invalid query/message');\nconst retrieval = bundle.retrieval && typeof bundle.retrieval === 'object' ? bundle.retrieval : { strategy: 'project-first-fallback-general', project_match_count: 0, general_match_count: 0, memory_count: 0, strongest_similarity: null, similarity_threshold: 0.72, empty: true };\nconst sources = Array.isArray(bundle.sources) ? bundle.sources : [];\nconst session = bundle.session && typeof bundle.session === 'object' ? bundle.session : { turn_count_before: 0, history_used: false, stored: false };\nconst context = typeof bundle.context === 'string' ? bundle.context : '';\nconst prompt = typeof bundle.prompt === 'string' ? bundle.prompt : '';\nconst projectSlug = typeof bundle.project_slug === 'string' && bundle.project_slug.trim() ? bundle.project_slug.trim() : (typeof payload.project_slug === 'string' && payload.project_slug.trim() ? payload.project_slug.trim() : null);\nconst topK = Number.isInteger(payload.top_k) ? payload.top_k : (Number.isInteger(bundle.top_k) ? bundle.top_k : 5);\nconst query = rawQuery.trim();\nconst simplifyRequested = /\\b(explain that more simply|explain simply|simplify|simpler|more simply|plain english|plain terms)\\b/i.test(query);\nconst improvedPrompt = [\n  prompt,\n  simplifyRequested ? 'When simplifying, preserve the core meaning and keep the key concepts from the source context, especially memory, retrieval, and system behavior. Reduce complexity without becoming generic, and do not replace specific ideas with vague wording.' : null\n].filter(Boolean).join('\\n\\n');\nreturn [{ json: { request_ok: true, skip_generation: retrieval.empty === true || !context.trim() || !improvedPrompt.trim(), query, project_slug: projectSlug, top_k: topK, retrieval, sources, context, context_preview: typeof bundle.context_preview === 'string' ? bundle.context_preview : context.slice(0, 280), prompt: improvedPrompt, trace: bundle.trace ?? { workflow_chain: ['crispybrain-answer-from-memory'] }, session } }];\n"
+        }
+      },
+      {
+        "id": "if-answer-request-ok",
+        "name": "Request Is Valid?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          -320,
+          0
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "cond-if-answer-request-ok",
+                "leftValue": "={{ $json.request_ok === true }}",
+                "rightValue": true,
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "if-generation-needed",
+        "name": "Generation Needed?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          -100,
+          0
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "cond-if-generation-needed",
+                "leftValue": "={{ $json.skip_generation !== true }}",
+                "rightValue": true,
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "http-answer-generate",
+        "name": "Generate Answer",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          120,
+          -90
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "http://host.docker.internal:11434/api/generate",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ model: 'llama3', prompt: $('Normalize Answer Request').first().json.prompt, stream: false }) }}",
+          "options": {
+            "response": {
+              "response": {
+                "fullResponse": true,
+                "neverError": true,
+                "responseFormat": "json"
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "code-build-answer-response",
+        "name": "Build Answer Response",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          340,
+          -90
+        ],
+        "parameters": {
+          "jsCode": "const base = $('Normalize Answer Request').first().json;\nconst statusCode = $json.statusCode ?? 0;\nconst body = $json.body ?? {};\nconst answer = typeof body.response === 'string' ? body.response.trim() : '';\nif (statusCode < 200 || statusCode >= 300 || answer === '') {\n  return [{ json: { ok: false, error: { code: 'OLLAMA_GENERATION_FAILED', message: 'Ollama answer generation failed', status: statusCode || null, details: body.error ?? null }, query: base.query, project_slug: base.project_slug ?? null, top_k: base.top_k, retrieval: base.retrieval, sources: base.sources, context_preview: base.context_preview, trace: { ...base.trace, workflow_chain: ['crispybrain-answer-from-memory'], stage: 'generation' }, session: base.session } }];\n}\nreturn [{ json: { ok: true, answer, query: base.query, project_slug: base.project_slug ?? null, top_k: base.top_k, retrieval: base.retrieval, sources: base.sources, context_preview: base.context_preview, trace: { ...base.trace, workflow_chain: ['crispybrain-answer-from-memory'], stage: 'generation' }, session: base.session } }];\n"
+        }
+      },
+      {
+        "id": "code-build-empty-answer",
+        "name": "Build Empty Retrieval Response",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          120,
+          120
+        ],
+        "parameters": {
+          "jsCode": "return [{ json: { ok: true, answer: 'I do not have enough stored memory to answer that yet.', query: $json.query, project_slug: $json.project_slug ?? null, top_k: $json.top_k, retrieval: { ...$json.retrieval, empty: true, memory_count: 0 }, sources: [], context_preview: $json.context_preview, trace: { ...($json.trace ?? {}), workflow_chain: ['crispybrain-answer-from-memory'], stage: 'empty-retrieval' }, session: $json.session } }];\n"
+        }
+      },
+      {
+        "id": "respond-answer-from-memory",
+        "name": "Respond Answer From Memory",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.3,
+        "position": [
+          570,
+          0
+        ],
+        "parameters": {
+          "respondWith": "firstIncomingItem",
+          "options": {}
+        }
+      }
+    ],
+    "connections": {
+      "Answer From Memory Webhook": {
+        "main": [
+          [
+            {
+              "node": "Normalize Answer Request",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Normalize Answer Request": {
+        "main": [
+          [
+            {
+              "node": "Request Is Valid?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Request Is Valid?": {
+        "main": [
+          [
+            {
+              "node": "Generation Needed?",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Respond Answer From Memory",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Generation Needed?": {
+        "main": [
+          [
+            {
+              "node": "Generate Answer",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Build Empty Retrieval Response",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Generate Answer": {
+        "main": [
+          [
+            {
+              "node": "Build Answer Response",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build Answer Response": {
+        "main": [
+          [
+            {
+              "node": "Respond Answer From Memory",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build Empty Retrieval Response": {
+        "main": [
+          [
+            {
+              "node": "Respond Answer From Memory",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1"
+    },
+    "staticData": {},
+    "meta": {
+      "templateCredsSetupCompleted": true
+    },
+    "pinData": {},
+    "versionId": "a46c4738-5d1e-4fc2-9a95-b46ac007dbab",
+    "activeVersionId": "a46c4738-5d1e-4fc2-9a95-b46ac007dbab",
+    "versionCounter": 68,
+    "triggerCount": 1,
+    "tags": [],
+    "shared": [
+      {
+        "updatedAt": "2026-04-17T23:44:57.564Z",
+        "createdAt": "2026-04-17T23:44:57.564Z",
+        "role": "workflow:owner",
+        "workflowId": "crispybrain-answer-from-memory",
+        "projectId": "VKNG4UDqz7QGgAET",
+        "project": {
+          "updatedAt": "2026-03-14T17:19:30.239Z",
+          "createdAt": "2026-03-14T17:09:24.875Z",
+          "id": "VKNG4UDqz7QGgAET",
+          "name": " Berry Sizemore <n8n.unlaced397@passmail.net>",
+          "type": "personal",
+          "icon": null,
+          "description": null,
+          "creatorId": "743be296-a176-4403-9a7d-383386f972db"
+        }
+      }
+    ],
+    "versionMetadata": {
+      "name": null,
+      "description": null
+    }
+  }
+]

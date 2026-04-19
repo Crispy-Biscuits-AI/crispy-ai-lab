@@ -1,0 +1,255 @@
+[
+  {
+    "updatedAt": "2026-04-18T00:10:27.995Z",
+    "createdAt": "2026-04-17T23:44:58.932Z",
+    "id": "crispybrain-auto-ingest-watch",
+    "name": "crispybrain-auto-ingest-watch",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+      {
+        "id": "webhook-crispybrain-watch",
+        "name": "Auto Ingest Watch Webhook",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          -760,
+          0
+        ],
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "crispybrain-auto-ingest-watch",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "webhookId": "crispybrain-auto-ingest-watch"
+      },
+      {
+        "id": "code-normalize-watch-request",
+        "name": "Normalize Watch Request",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -540,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const payload = ($json.body && typeof $json.body === 'object') ? $json.body : $json;\nconst filepath = typeof payload.filepath === 'string' ? payload.filepath.trim() : '';\nconst filename = typeof payload.filename === 'string' && payload.filename.trim() ? payload.filename.trim() : (filepath ? filepath.split('/').pop() : 'watch-payload.txt');\nconst content = typeof payload.content === 'string' ? payload.content : '';\nconst explicitProjectSlug = typeof payload.project_slug === 'string' && payload.project_slug.trim() ? payload.project_slug.trim() : '';\nconst inferredProjectSlug = (() => {\n  if (!filepath) return '';\n  const parts = filepath.split('/').filter(Boolean);\n  const inboxIndex = parts.findIndex((part) => part === 'inbox');\n  if (inboxIndex >= 0 && parts.length - inboxIndex >= 3) return parts[inboxIndex + 1];\n  return '';\n})();\nconst projectSlug = explicitProjectSlug || inferredProjectSlug || null;\nif (!filepath && !content.trim()) return [{ json: { request_ok: false, ok: false, error: { code: 'INVALID_WATCH_INPUT', message: 'Provide filepath and/or content to crispybrain-auto-ingest-watch' } } }];\nreturn [{ json: { request_ok: true, filepath: filepath || `inline://${filename}`, filename, content, project_slug: projectSlug, modifiedEpoch: payload.modifiedEpoch !== undefined && payload.modifiedEpoch !== null ? Number(payload.modifiedEpoch) : null, source: { kind: 'auto_ingest_watch', label: 'auto_ingest_watch', path: filepath || null }, watch: { inferred_project_slug: inferredProjectSlug || null, explicit_project_slug: explicitProjectSlug || null, request_source: 'crispybrain-auto-ingest-watch' } } }];\n"
+        }
+      },
+      {
+        "id": "if-watch-request-ok",
+        "name": "Request Is Valid?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          -320,
+          0
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "cond-if-watch-request-ok",
+                "leftValue": "={{ $json.request_ok === true }}",
+                "rightValue": true,
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "code-build-watch-handoff",
+        "name": "Build Watch Handoff",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -100,
+          -90
+        ],
+        "parameters": {
+          "jsCode": "return [{ json: { body: { filepath: $json.filepath, filename: $json.filename, content: $json.content, project_slug: $json.project_slug, modifiedEpoch: $json.modifiedEpoch, source: $json.source, category: 'project_note' }, watch: $json.watch, filepath: $json.filepath, filename: $json.filename, project_slug: $json.project_slug } }];\n"
+        }
+      },
+      {
+        "id": "http-call-ingest",
+        "name": "Call Ingest Workflow",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          120,
+          -90
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "http://127.0.0.1:5678/webhook/crispybrain-ingest",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify($json.body) }}",
+          "options": {
+            "response": {
+              "response": {
+                "fullResponse": true,
+                "neverError": true,
+                "responseFormat": "json"
+              }
+            },
+            "timeout": 300000
+          }
+        }
+      },
+      {
+        "id": "code-build-watch-result",
+        "name": "Build Watch Result",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          340,
+          -90
+        ],
+        "parameters": {
+          "jsCode": "const handoff = $('Build Watch Handoff').first().json;\nconst statusCode = $json.statusCode ?? 0;\nconst body = $json.body ?? {};\nif (statusCode < 200 || statusCode >= 300 || body.ok !== true) {\n  return [{ json: { ok: false, error: { code: 'INGEST_HANDOFF_FAILED', message: 'crispybrain-ingest did not accept the auto-ingest handoff', status: statusCode || null, details: body.error ?? body ?? null }, filepath: handoff.filepath, filename: handoff.filename, project_slug: handoff.project_slug, watch: handoff.watch, ingest: body } }];\n}\nreturn [{ json: { ok: true, filepath: handoff.filepath, filename: handoff.filename, project_slug: handoff.project_slug, watch: handoff.watch, ingest: body, execution_log: { workflow_chain: ['crispybrain-auto-ingest-watch', 'crispybrain-ingest'], handed_off: true, inserted_count: body.inserted_count ?? 0 } } }];\n"
+        }
+      },
+      {
+        "id": "respond-watch-result",
+        "name": "Respond Watch Result",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.3,
+        "position": [
+          570,
+          0
+        ],
+        "parameters": {
+          "respondWith": "firstIncomingItem",
+          "options": {}
+        }
+      }
+    ],
+    "connections": {
+      "Auto Ingest Watch Webhook": {
+        "main": [
+          [
+            {
+              "node": "Normalize Watch Request",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Normalize Watch Request": {
+        "main": [
+          [
+            {
+              "node": "Request Is Valid?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Request Is Valid?": {
+        "main": [
+          [
+            {
+              "node": "Build Watch Handoff",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Respond Watch Result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build Watch Handoff": {
+        "main": [
+          [
+            {
+              "node": "Call Ingest Workflow",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Call Ingest Workflow": {
+        "main": [
+          [
+            {
+              "node": "Build Watch Result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build Watch Result": {
+        "main": [
+          [
+            {
+              "node": "Respond Watch Result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1"
+    },
+    "staticData": {},
+    "meta": {
+      "templateCredsSetupCompleted": true
+    },
+    "pinData": {},
+    "versionId": "bce22cdf-42de-4337-b228-69a3b94eda41",
+    "activeVersionId": "bce22cdf-42de-4337-b228-69a3b94eda41",
+    "versionCounter": 67,
+    "triggerCount": 1,
+    "tags": [],
+    "shared": [
+      {
+        "updatedAt": "2026-04-17T23:44:58.932Z",
+        "createdAt": "2026-04-17T23:44:58.932Z",
+        "role": "workflow:owner",
+        "workflowId": "crispybrain-auto-ingest-watch",
+        "projectId": "VKNG4UDqz7QGgAET",
+        "project": {
+          "updatedAt": "2026-03-14T17:19:30.239Z",
+          "createdAt": "2026-03-14T17:09:24.875Z",
+          "id": "VKNG4UDqz7QGgAET",
+          "name": " Berry Sizemore <n8n.unlaced397@passmail.net>",
+          "type": "personal",
+          "icon": null,
+          "description": null,
+          "creatorId": "743be296-a176-4403-9a7d-383386f972db"
+        }
+      }
+    ],
+    "versionMetadata": {
+      "name": null,
+      "description": null
+    }
+  }
+]
