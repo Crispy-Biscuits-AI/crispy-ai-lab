@@ -1,135 +1,168 @@
-# crispy-ai-lab
+# Crispy AI Lab
 
-`crispy-ai-lab` is the public-facing working repository for CrispyBrain, a small self-hosted memory assistant built around n8n workflows, Postgres with `pgvector`, and a local Ollama model runtime.
+`crispy-ai-lab` is the local runtime and infrastructure repo for CrispyBrain.
 
-The current product path is intentionally narrow:
+It is the place where you run the Docker-based lab stack: Postgres with `pgvector`, `n8n`, and the `crispybrain-demo-ui` service that serves the local demo on `http://localhost:8787`.
 
-- ingest notes or file content into CrispyBrain
-- store memory chunks and embeddings in Postgres
-- retrieve relevant memory for a question
-- generate an answer with Ollama
+This repo is intentionally not the product surface repo. The current public demo UI, demo workflow, and product-facing docs live in the sibling `crispybrain` repo.
 
-## Current Core
+## Current State
 
-The current CrispyBrain implementation is centered on:
+- early, real, build-in-public local runtime
+- self-hosted and local-first
+- good for running the demo and inspecting the stack
+- not a turnkey production deployment
+- not a managed SaaS or one-command installer
 
-- exported n8n workflows in [crispybrain/workflows](crispybrain/workflows)
-- memory schema in [postgres/init/001-crispybrain.sql](postgres/init/001-crispybrain.sql)
-- sample inbox content in [crispybrain/inbox](crispybrain/inbox)
-- a minimal deployment path in [docker-compose.minimal.yml](docker-compose.minimal.yml)
-- operator/setup docs in:
-  - [operator quickstart](docs/operator-quickstart.md)
-  - [minimal setup](docs/setup-minimal.md)
-  - [workflow sync](docs/workflow-sync.md)
-  - [public scope](docs/public-scope.md)
+## How It Fits With `crispybrain`
 
-The exported workflow set currently includes:
+- `crispybrain`: product/demo repo, UI assets, demo workflow, public-facing docs
+- `crispy-ai-lab`: runtime repo, Docker Compose stack, local services, and lab-oriented helper scripts
 
-- `crispybrain-auto-ingest-watch`
-- `crispybrain-ingest`
-- `crispybrain-build-context`
-- `crispybrain-answer-from-memory`
-- `crispybrain-assistant`
-- `crispybrain-project-memory`
-- `crispybrain-validation-and-errors`
+Clone both repos as sibling directories if you want the default demo path to work without overrides.
 
-## Minimum Deployment Shape
+## What The Lab Runs
 
-The smallest current runtime story is:
+Main services in the default stack:
 
-- `n8n`
-- `Postgres` with `pgvector`
-- `Ollama`
+- `postgres`: memory store with `pgvector`
+- `n8n`: workflow runtime, pinned here to `2.16.1`
+- `crispybrain-demo-ui`: demo UI built from the sibling `crispybrain` repo and served on port `8787`
 
-Ollama is currently expected to run on the host machine, not inside Compose. The active workflows call:
+Host-side dependency:
 
-- `http://host.docker.internal:11434/api/embed`
-- `http://host.docker.internal:11434/api/generate`
+- Ollama running on the host at `http://host.docker.internal:11434`
 
-To start the minimum stack:
+Required Ollama models for the current demo path:
 
-```sh
-docker compose -f docker-compose.minimal.yml up -d
+- `llama3`
+- `nomic-embed-text`
+
+## Prerequisites
+
+- Docker Desktop with Docker Compose support
+- Docker Desktop for macOS `4.69.0` is the tested target for this pass
+- Ollama running on the host
+- a sibling checkout of `crispybrain`, or an override via `CRISPYBRAIN_REPO_PATH`
+
+## Quickstart
+
+This is the most honest current path to the public demo:
+
+1. Clone both repos side by side.
+
+```bash
+git clone <crispybrain-repo-url> crispybrain
+git clone <crispy-ai-lab-repo-url> crispy-ai-lab
 ```
 
-After import, the workflows still need an n8n Postgres credential named `Postgres account` or an equivalent remapped credential in the target instance.
+2. Configure the lab environment.
 
-## Start Here
+```bash
+cd crispy-ai-lab
+cp .env.example .env
+```
 
-If you are new to the repo, use this order:
+3. Start the runtime stack.
 
-1. [Operator Quickstart](docs/operator-quickstart.md)
-2. [Minimal Setup](docs/setup-minimal.md)
-3. [Workflow Sync](docs/workflow-sync.md)
-4. [Public Scope](docs/public-scope.md)
+```bash
+docker compose up -d postgres n8n crispybrain-demo-ui
+```
+
+4. Import the current workflow exports from the sibling `crispybrain` repo.
+
+```bash
+WORKFLOW_DIR=../crispybrain/workflows \
+CONFIRM_IMPORT=I_UNDERSTAND \
+scripts/workflows/import-exported-into-docker.sh
+```
+
+5. In n8n, create a Postgres credential named `Postgres account` using the values from `.env`.
+
+6. Activate the imported `assistant` and `crispybrain-demo` workflows.
+
+7. Open the demo.
+
+```text
+http://localhost:8787
+```
+
+8. Ask the recommended demo question with project slug `alpha`:
+
+```text
+How am I planning to build CrispyBrain?
+```
+
+Success currently looks like:
+
+- the page loads on `localhost:8787`
+- `POST /api/demo/ask` returns JSON
+- the demo UI shows an answer plus retrieved sources
+- the request path reaches `crispybrain-demo`, which forwards into `assistant`
+
+## URLs
+
+- Demo UI: `http://localhost:8787`
+- n8n: `http://localhost:5678`
+- Postgres: `localhost:5432`
+
+## Manual Steps And Honest Assumptions
+
+This repo is public-ready, not fully turnkey. The following still need a real operator:
+
+- copy `.env.example` to `.env`
+- keep Ollama running on the host
+- import the workflow JSON manually or via the helper script
+- create the `Postgres account` credential in n8n
+- activate workflows in n8n after import
+- keep workflow exports in sync if you edit them live in the n8n UI
+
+The lab also assumes:
+
+- the current demo UI build context points at `../crispybrain` unless you override `CRISPYBRAIN_REPO_PATH`
+- the first-run Postgres init SQL only applies when the Postgres volume is new
+- some underlying runtime names and stored data may still carry earlier `openbrain-*` compatibility labels
+
+## Minimal Stack
+
+If you only want the lab runtime without the demo UI, use:
+
+```bash
+docker compose -f docker-compose.minimal.yml up -d postgres n8n
+```
+
+That path is useful for workflow work, but the main public demo walkthrough uses the default `docker-compose.yml` stack because it includes `crispybrain-demo-ui`.
 
 ## Repo Layout
 
-- [crispybrain/workflows](crispybrain/workflows): exported active CrispyBrain n8n workflows
-- [crispybrain/inbox](crispybrain/inbox): sample input files and inbox layout used by the ingest flow
-- [postgres/init](postgres/init): SQL schema for memory storage
-- [docs](docs): repo audit, minimum-stack notes, cleanup notes, and deployment explanation
-- [optional](optional): non-core configs kept for reference
-- [archive](archive): experimental or legacy artifacts moved out of the main story
+- `docker-compose.yml`: default local demo/runtime stack
+- `docker-compose.minimal.yml`: smaller runtime without the demo UI
+- `postgres/init/`: first-run Postgres schema bootstrap
+- `scripts/workflows/`: import/export helpers for the local n8n container
+- `docs/`: setup, scope, workflow-sync, and public-readiness notes
+- `crispybrain/`: older lab-side workflow exports and sample inbox content kept for reference
+- `optional/`: non-core configs intentionally outside the main startup path
+- `archive/`: older experiments and legacy material
 
-## Full Stack vs Minimum Stack
+## Troubleshooting Basics
 
-- [docker-compose.minimal.yml](docker-compose.minimal.yml) is the recommended starting point for consulting, explanation, and future client deployment work.
-- [docker-compose.yml](docker-compose.yml) remains a broader local stack with optional services preserved for compatibility and reference.
+- Check service state with `docker compose ps`.
+- Tail logs with `docker compose logs -f n8n crispybrain-demo-ui`.
+- If the demo UI loads but answers fail, verify Ollama is running and reachable from the `n8n` container.
+- If the workflow import succeeds but the demo webhook is missing, confirm `crispybrain-demo` is imported and activated.
+- If Postgres schema objects are missing on a reused volume, recreate the Postgres volume intentionally before retrying first-run setup.
 
-## Core vs Optional vs Archive
+## More Docs
 
-- Core:
-  - `crispybrain/workflows`
-  - `crispybrain/inbox`
-  - `postgres/init/001-crispybrain.sql`
-  - `docker-compose.minimal.yml`
-- Optional:
-  - `optional/`
-  - broader integrations preserved in `docker-compose.yml`
-- Archived:
-  - `archive/`
-  - no longer part of the default CrispyBrain path
-
-## Public Scope
-
-This public repo is about the CrispyBrain core:
-
-- workflow-driven memory ingest
-- memory retrieval from Postgres
-- answer generation with Ollama
-
-Out of scope for the public core story:
-
-- CMS implementation details
-- client-specific integrations
-- internal experiments that are not documented as current CrispyBrain behavior
-
-See [docs/public-scope.md](docs/public-scope.md) and [docs/private-boundary-notes.md](docs/private-boundary-notes.md).
-
-## What Is Optional or Experimental
-
-The repo still contains older or broader lab-era components, but they are not part of the minimum CrispyBrain story:
-
-- LiteLLM config in [optional/litellm](optional/litellm)
-- OpenClaw config in [optional/openclaw](optional/openclaw)
-- older compose experiments in [archive/experiments](archive/experiments)
-- live n8n cleanup planning in [docs/live-n8n-cleanup-plan.md](docs/live-n8n-cleanup-plan.md)
-
-## Open Source Readiness
-
-This repo is being prepared for public release as a CrispyBrain-first project.
-
-Useful release-facing docs:
-
-- [Open Source Readiness Audit](docs/open-source-readiness-audit.md)
-- [Release Checklist](docs/release-checklist.md)
-- [Public Release Recommendation](docs/public-release-recommendation.md)
-- [License Decision Needed](docs/license-decision-needed.md)
+- [Operator Quickstart](docs/operator-quickstart.md)
+- [Minimal Setup](docs/setup-minimal.md)
+- [Workflow Sync](docs/workflow-sync.md)
+- [Public Scope](docs/public-scope.md)
+- [Private Boundary Notes](docs/private-boundary-notes.md)
+- [Legacy Naming Debt](docs/legacy-naming-debt.md)
 - [Contributing](CONTRIBUTING.md)
+- [Security](SECURITY.md)
 
-## Important Caveat
+## License
 
-The active workflows are now exported into the repo, which is a big improvement over the earlier state. But n8n remains a live editing surface, so the exports can still drift from the runtime if workflows are changed in the UI and not re-exported.
-
-That means this repo is now much more truthful and consultable, but workflow export and sync discipline still matters. A fresh n8n instance will also need the required Postgres credential configured before the imported workflows can run.
+[MIT](LICENSE)

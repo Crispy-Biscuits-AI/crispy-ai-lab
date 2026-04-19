@@ -2,9 +2,15 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-N8N_CONTAINER="${N8N_CONTAINER:-ai-n8n}"
 WORKFLOW_DIR="${WORKFLOW_DIR:-$REPO_ROOT/crispybrain/workflows}"
 CONFIRM_IMPORT="${CONFIRM_IMPORT:-}"
+
+compose() {
+  (
+    cd "$REPO_ROOT"
+    docker compose "$@"
+  )
+}
 
 if [[ "$CONFIRM_IMPORT" != "I_UNDERSTAND" ]]; then
   cat <<'EOF' >&2
@@ -26,8 +32,8 @@ if ! command -v docker >/dev/null 2>&1; then
   exit 1
 fi
 
-if ! docker exec "$N8N_CONTAINER" true >/dev/null 2>&1; then
-  echo "Cannot reach n8n container: $N8N_CONTAINER" >&2
+if ! compose exec -T n8n true >/dev/null 2>&1; then
+  echo "Cannot reach the local n8n service through docker compose" >&2
   exit 1
 fi
 
@@ -36,11 +42,26 @@ if [[ ! -d "$WORKFLOW_DIR" ]]; then
   exit 1
 fi
 
-docker exec "$N8N_CONTAINER" rm -rf /tmp/crispybrain-workflows
-docker cp "$WORKFLOW_DIR/." "$N8N_CONTAINER:/tmp/crispybrain-workflows"
-docker exec "$N8N_CONTAINER" n8n import:workflow --separate --input=/tmp/crispybrain-workflows
+shopt -s nullglob
+workflow_files=("$WORKFLOW_DIR"/*.json)
+
+if [[ ${#workflow_files[@]} -eq 0 ]]; then
+  echo "No workflow JSON files found in: $WORKFLOW_DIR" >&2
+  exit 1
+fi
+
+compose exec -T n8n sh -lc 'rm -rf /tmp/crispybrain-workflows && mkdir -p /tmp/crispybrain-workflows'
+
+for workflow_file in "${workflow_files[@]}"; do
+  workflow_name="$(basename "$workflow_file")"
+  echo "Copying $workflow_name"
+  compose exec -T n8n sh -lc "cat > /tmp/crispybrain-workflows/$workflow_name" < "$workflow_file"
+done
+
+compose exec -T n8n n8n import:workflow --separate --input=/tmp/crispybrain-workflows
 
 echo "Import complete."
+echo "Imported from: $WORKFLOW_DIR"
 echo "Next steps:"
 echo "  1. Create or map the 'Postgres account' credential"
 echo "  2. Verify Ollama is reachable from n8n"

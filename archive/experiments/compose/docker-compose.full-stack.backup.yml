@@ -73,7 +73,7 @@ services:
       NODES_EXCLUDE: "[]"
     volumes:
       - n8n_data:/home/node/.n8n
-      - /Users/elric/repos/crispy-ai-lab/crispybrain/inbox:/home/node/.n8n-files/crispybrain/inbox
+      - ../../../crispybrain/inbox:/home/node/.n8n-files/crispybrain/inbox
     extra_hosts:
       - "host.docker.internal:host-gateway"
 

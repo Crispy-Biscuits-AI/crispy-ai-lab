@@ -16,6 +16,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
       - postgres_data:/var/lib/postgresql/data
     networks:
       default:
@@ -23,7 +24,7 @@ services:
           - ai-postgres
 
   n8n:
-    image: docker.n8n.io/n8nio/n8n:latest
+    image: docker.n8n.io/n8nio/n8n:2.16.1
     restart: unless-stopped
     depends_on:
       - postgres
@@ -40,8 +41,8 @@ services:
       N8N_PORT: 5678
       N8N_PROTOCOL: http
       WEBHOOK_URL: http://localhost:5678/
-      GENERIC_TIMEZONE: America/Los_Angeles
-      OLLAMA_HOST: http://host.docker.internal:11434
+      GENERIC_TIMEZONE: ${GENERIC_TIMEZONE:-UTC}
+      OLLAMA_HOST: ${OLLAMA_HOST:-http://host.docker.internal:11434}
       NODE_FUNCTION_ALLOW_BUILTIN: "*"
       NODES_EXCLUDE: "[]"
     volumes:

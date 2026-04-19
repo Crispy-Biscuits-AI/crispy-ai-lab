@@ -1,7 +1,11 @@
-# License Decision Needed
+# License Decision
 
-This repo does not yet include a final public license.
+MIT was selected for the public open-source release pass.
 
-Before a true open-source release, a maintainer should choose and add an appropriate license intentionally.
+That choice fits the current goal for this repo:
 
-This document exists to prevent an accidental public release that looks open-source-ready while still missing a core legal decision.
+- make the lab understandable and reusable
+- keep the legal story simple for early public sharing
+- avoid blocking release on a more restrictive licensing debate
+
+See the root [LICENSE](../LICENSE).

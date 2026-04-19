@@ -9,14 +9,15 @@ A minimum working CrispyBrain environment can:
 - retrieve relevant memory for a question
 - generate an answer with Ollama
 
-It does not require the broader optional lab stack.
+It does not require the broader optional lab stack. It also does not automatically include the demo UI on `8787`; that is provided by the default `docker-compose.yml` stack when the sibling `crispybrain` repo is present.
 
 ## Required Files
 
 - [docker-compose.minimal.yml](../docker-compose.minimal.yml)
 - [postgres/init/001-crispybrain.sql](../postgres/init/001-crispybrain.sql)
-- [crispybrain/workflows](../crispybrain/workflows)
 - [.env.example](../.env.example)
+
+For the current public demo path, you also want the sibling `../crispybrain` repo because it contains the demo UI and the current `assistant`/`crispybrain-demo` workflow exports.
 
 ## Required Environment Variables
 
@@ -32,6 +33,12 @@ Current minimum variables:
 - `POSTGRES_PASSWORD`
 - `POSTGRES_DB`
 
+Optional overrides:
+
+- `OLLAMA_HOST`
+- `GENERIC_TIMEZONE`
+- `CRISPYBRAIN_REPO_PATH`
+
 ## Start The Minimum Stack
 
 ```sh
@@ -43,11 +50,17 @@ This starts:
 - `postgres`
 - `n8n`
 
+If you want the current public demo surface as well, run the default stack instead:
+
+```sh
+docker compose up -d postgres n8n crispybrain-demo-ui
+```
+
 ## Postgres Initialization Assumptions
 
-The Compose stack relies on Docker's standard init behavior for the Postgres image:
+The Compose stack now mounts `postgres/init/` into Docker's standard Postgres init directory:
 
-- on first start, `postgres/init/001-crispybrain.sql` runs automatically
+- on first start of a fresh Postgres volume, `postgres/init/001-crispybrain.sql` runs automatically
 - it creates the `memories` and `memory_categories` tables
 - it enables the `vector` extension
 
@@ -83,19 +96,24 @@ The current minimum Compose file assumes Ollama runs on the host, not in Compose
 
 ## Workflow Import
 
-Import the exported workflows from [crispybrain/workflows](../crispybrain/workflows).
+For the current public demo path, import the exported workflows from the sibling `crispybrain` repo.
 
 Recommended helper:
 
 ```sh
-CONFIRM_IMPORT=I_UNDERSTAND scripts/workflows/import-exported-into-docker.sh
+WORKFLOW_DIR=../crispybrain/workflows \
+CONFIRM_IMPORT=I_UNDERSTAND \
+scripts/workflows/import-exported-into-docker.sh
 ```
 
 Manual equivalent:
 
 ```sh
-docker cp crispybrain/workflows/. ai-n8n:/tmp/crispybrain-workflows
-docker exec ai-n8n n8n import:workflow --separate --input=/tmp/crispybrain-workflows
+docker compose exec -T n8n sh -lc 'rm -rf /tmp/crispybrain-workflows && mkdir -p /tmp/crispybrain-workflows'
+for workflow_file in ../crispybrain/workflows/*.json; do
+  docker compose exec -T n8n sh -lc "cat > /tmp/crispybrain-workflows/$(basename "$workflow_file")" < "$workflow_file"
+done
+docker compose exec -T n8n n8n import:workflow --separate --input=/tmp/crispybrain-workflows
 ```
 
 Import order does not appear strict for the current exported set, but import the whole directory before activation.
@@ -121,4 +139,5 @@ This supports the current watch/ingest mental model:
 5. import the exported workflows
 6. create the `Postgres account` credential in n8n
 7. activate the imported CrispyBrain workflows
-8. test ingest and assistant behavior
+8. if you started the full stack, open `http://localhost:8787`
+9. test ingest and assistant behavior

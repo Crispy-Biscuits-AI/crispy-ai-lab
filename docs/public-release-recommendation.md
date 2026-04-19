@@ -17,11 +17,9 @@ That is enough to make it understandable and credible for a technical public aud
 
 ## Last Important Blockers
 
-### 1. License selection
+### 1. Release discipline
 
-There is no final public license yet.
-
-That is the clearest release blocker because it affects how outsiders can legally use the repo.
+The MIT license is now in place, so the remaining work is mostly about keeping docs, workflow exports, and local assumptions aligned.
 
 ### 2. Public polish around residual private-adjacent traces
 
@@ -67,4 +65,4 @@ Recommendation:
 
 - do not rename automatically now
 - keep the current repo name for continuity
-- continue shifting the public narrative, docs, and operator flow toward `CrispyBrain` as the actual product identity
+- continue positioning it as the lab/runtime companion to the `crispybrain` product repo

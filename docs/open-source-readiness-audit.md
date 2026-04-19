@@ -6,7 +6,6 @@
 
 The main remaining public-release issues are not catastrophic leaks, but boundary and polish issues:
 
-- no license has been chosen yet
 - the repo still contains optional/private-adjacent context that should stay clearly out of scope
 - some legacy naming and domain residue remain in runtime-sensitive places
 - the working product still depends on external setup, especially n8n credentials and host Ollama
@@ -15,15 +14,16 @@ The main remaining public-release issues are not catastrophic leaks, but boundar
 
 - exported active CrispyBrain workflows are in `crispybrain/workflows/`
 - minimum deployment path exists in `docker-compose.minimal.yml`
+- default demo/runtime path exists in `docker-compose.yml`
 - `.env` is ignored and not tracked
 - `.env.example` exists
+- MIT `LICENSE` exists
 - setup, operator, and workflow-sync docs exist
 - optional and archived material are separated from the core story
 - no tracked secret values were found in the public-core files that should be published as-is
 
 ## Needs Cleanup Before Public Release
 
-- choose and publish a real license
 - review whether `docker-compose.yml` should stay in public form as a broad optional stack or be documented more strongly as secondary
 - review the SQL category names `cms_signal` and `cms_reason_code` in `postgres/init/001-crispybrain.sql`
   - these are not secrets, but they are private-adjacent domain residue and may confuse public readers
@@ -66,4 +66,4 @@ The main remaining public-release issues are not catastrophic leaks, but boundar
 ### Public Impression Risk
 
 - the repo is credible for a technical audience now
-- biggest remaining impression blocker is licensing and a few signs of internal history, not hidden secrets
+- the biggest remaining impression blocker is residual internal history, not hidden secrets

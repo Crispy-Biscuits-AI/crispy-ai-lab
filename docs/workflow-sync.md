@@ -2,19 +2,13 @@
 
 ## Canonical Workflow Location
 
-The canonical exported workflow snapshots live in [crispybrain/workflows](../crispybrain/workflows).
+For the current public demo path, the canonical exported workflow snapshots live in the sibling `../crispybrain/workflows` repo checkout.
 
-Current exported core:
+That workflow directory contains the current public-facing `assistant` flow, the `crispybrain-demo` wrapper workflow, and the demo repo's product-facing exports.
 
-- `crispybrain-auto-ingest-watch.json`
-- `crispybrain-ingest.json`
-- `crispybrain-build-context.json`
-- `crispybrain-answer-from-memory.json`
-- `crispybrain-assistant.json`
-- `crispybrain-project-memory.json`
-- `crispybrain-validation-and-errors.json`
+This lab repo also keeps older lab-side workflow exports under [`crispybrain/workflows`](../crispybrain/workflows), but they are not the primary onboarding path for the `localhost:8787` demo.
 
-These files are the repo-side source of truth for the current CrispyBrain workflow layer. The live n8n instance is still editable, so operators must keep exports in sync.
+The live n8n instance is still editable, so operators must keep exports in sync intentionally.
 
 ## Export Updated Workflows From n8n
 
@@ -26,28 +20,23 @@ Use [scripts/workflows/export-active-from-docker.sh](../scripts/workflows/export
 scripts/workflows/export-active-from-docker.sh
 ```
 
-Default assumptions:
-
-- the n8n container is named `ai-n8n`
-- the repo root is the current repository
-- the exported files should overwrite the JSON snapshots in `crispybrain/workflows/`
-
-You can override the container name with:
+Recommended override for the current public demo repo:
 
 ```sh
-N8N_CONTAINER=my-n8n scripts/workflows/export-active-from-docker.sh
+OUT_DIR=../crispybrain/workflows scripts/workflows/export-active-from-docker.sh
 ```
 
 ### Equivalent manual export
 
-From a running n8n container:
+From the running local Compose stack:
 
 ```sh
-docker exec ai-n8n n8n export:workflow --id='crispybrain-assistant' --pretty --output='/tmp/crispybrain-assistant.json'
-docker cp ai-n8n:/tmp/crispybrain-assistant.json crispybrain/workflows/crispybrain-assistant.json
+docker compose exec -T n8n sh -lc \
+  "n8n export:workflow --id='assistant' --pretty --output='/tmp/assistant.json' >/dev/null && cat /tmp/assistant.json" \
+  > ../crispybrain/workflows/assistant.json
 ```
 
-Repeat for all 7 active CrispyBrain workflows.
+Repeat for the workflow IDs you want to refresh.
 
 ## Import Workflows Into a Fresh n8n Instance
 
@@ -56,18 +45,23 @@ Repeat for all 7 active CrispyBrain workflows.
 For a fresh Docker-based n8n container, use:
 
 ```sh
-CONFIRM_IMPORT=I_UNDERSTAND scripts/workflows/import-exported-into-docker.sh
+WORKFLOW_DIR=../crispybrain/workflows \
+CONFIRM_IMPORT=I_UNDERSTAND \
+scripts/workflows/import-exported-into-docker.sh
 ```
 
 This imports the exported JSON files into the running container. It does not create credentials and it does not validate the workflows after import.
 
 ### Equivalent manual import
 
-Copy the exported JSON directory into the container and import it:
+Copy the exported JSON files into the container and import them:
 
 ```sh
-docker cp crispybrain/workflows/. ai-n8n:/tmp/crispybrain-workflows
-docker exec ai-n8n n8n import:workflow --separate --input=/tmp/crispybrain-workflows
+docker compose exec -T n8n sh -lc 'rm -rf /tmp/crispybrain-workflows && mkdir -p /tmp/crispybrain-workflows'
+for workflow_file in ../crispybrain/workflows/*.json; do
+  docker compose exec -T n8n sh -lc "cat > /tmp/crispybrain-workflows/$(basename "$workflow_file")" < "$workflow_file"
+done
+docker compose exec -T n8n n8n import:workflow --separate --input=/tmp/crispybrain-workflows
 ```
 
 If you use multi-user or project-based n8n, you may need `--userId` or `--projectId`.
@@ -79,11 +73,9 @@ The imported workflows expect:
 - an n8n credential named `Postgres account`
 - Postgres reachable from n8n using the Compose host name `postgres`
 - Ollama reachable from n8n at `http://host.docker.internal:11434`
-- the Ollama models:
-  - `llama3`
-  - `nomic-embed-text`
+- the Ollama models `llama3` and `nomic-embed-text`
 
-The workflows also call each other through local webhook URLs on `127.0.0.1:5678`, so all imported CrispyBrain workflows should be present before you start activating and testing them.
+The current public demo flow also depends on the demo wrapper workflow `crispybrain-demo`, which forwards requests into `assistant`.
 
 ## Import Order
 
@@ -91,14 +83,14 @@ Strict import order does not appear to matter for the current exported set becau
 
 Recommended practice:
 
-1. import the whole `crispybrain/workflows/` directory
+1. import the whole `../crispybrain/workflows/` directory
 2. configure credentials
 3. activate the workflow set
 4. test the full chain
 
 ## How To Avoid Drift
 
-- treat `crispybrain/workflows/` as the canonical repo snapshot
+- treat the workflow directory you actually import from as the canonical repo snapshot
 - re-export after any meaningful n8n UI change
 - do not edit exported JSON casually by hand unless you are making a deliberate repo-side change
 - review `git diff` on workflow JSON before committing
@@ -118,7 +110,7 @@ That means a fresh environment needs both:
 ## Recommended Operator Checklist Before Commit
 
 - export the active workflows again
-- confirm exactly 7 core workflow files exist in `crispybrain/workflows/`
+- confirm the expected workflow files exist in the directory you consider canonical
 - review diffs for changed webhook paths, model names, SQL, and credential references
 - verify README/setup docs still match the exports
 - verify the `Postgres account` credential expectation has not changed

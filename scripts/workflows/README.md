@@ -9,3 +9,5 @@ They are intentionally small and honest:
 - `post-import-checklist.sh`: prints the operator checklist that still must be completed manually
 
 These scripts do not create credentials automatically and they do not promise a full one-command deployment.
+
+For the current public demo path, it is normal to point `WORKFLOW_DIR` or `OUT_DIR` at the sibling `../crispybrain/workflows` checkout instead of the lab-local `crispybrain/workflows` directory.
