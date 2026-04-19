@@ -13,10 +13,10 @@ It does not require the broader optional lab stack.
 
 ## Required Files
 
-- [docker-compose.minimal.yml](/Users/elric/repos/crispy-ai-lab/docker-compose.minimal.yml)
-- [postgres/init/001-crispybrain.sql](/Users/elric/repos/crispy-ai-lab/postgres/init/001-crispybrain.sql)
-- [crispybrain/workflows](/Users/elric/repos/crispy-ai-lab/crispybrain/workflows)
-- [.env.example](/Users/elric/repos/crispy-ai-lab/.env.example)
+- [docker-compose.minimal.yml](../docker-compose.minimal.yml)
+- [postgres/init/001-crispybrain.sql](../postgres/init/001-crispybrain.sql)
+- [crispybrain/workflows](../crispybrain/workflows)
+- [.env.example](../.env.example)
 
 ## Required Environment Variables
 
@@ -83,7 +83,7 @@ The current minimum Compose file assumes Ollama runs on the host, not in Compose
 
 ## Workflow Import
 
-Import the exported workflows from [crispybrain/workflows](/Users/elric/repos/crispy-ai-lab/crispybrain/workflows).
+Import the exported workflows from [crispybrain/workflows](../crispybrain/workflows).
 
 Recommended helper:
 

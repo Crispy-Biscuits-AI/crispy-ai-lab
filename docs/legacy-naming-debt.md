@@ -16,7 +16,7 @@ The main rule for now:
 
 Where it appears:
 
-- active exported workflow [crispybrain-assistant.json](/Users/elric/repos/crispy-ai-lab/crispybrain/workflows/crispybrain-assistant.json)
+- active exported workflow [crispybrain-assistant.json](../crispybrain/workflows/crispybrain-assistant.json)
 - live Postgres table `public.openbrain_chat_turns`
 - associated indexes, constraints, and sequence in Postgres
 
@@ -89,7 +89,7 @@ Why it matters:
 
 Where it appears:
 
-- [archive/experiments/compose/mock.yml](/Users/elric/repos/crispy-ai-lab/archive/experiments/compose/mock.yml)
+- [archive/experiments/compose/mock.yml](../archive/experiments/compose/mock.yml)
 
 Classification:
 

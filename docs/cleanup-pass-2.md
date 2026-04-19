@@ -2,17 +2,17 @@
 
 ## What Was Preserved
 
-- the 7 active CrispyBrain workflows were exported from the live n8n instance into [crispybrain/workflows](/Users/elric/repos/crispy-ai-lab/crispybrain/workflows)
-- the current Postgres memory schema remained in place at [postgres/init/001-crispybrain.sql](/Users/elric/repos/crispy-ai-lab/postgres/init/001-crispybrain.sql)
-- the current inbox mental model remained in place at [crispybrain/inbox](/Users/elric/repos/crispy-ai-lab/crispybrain/inbox)
+- the 7 active CrispyBrain workflows were exported from the live n8n instance into [crispybrain/workflows](../crispybrain/workflows)
+- the current Postgres memory schema remained in place at [postgres/init/001-crispybrain.sql](../postgres/init/001-crispybrain.sql)
+- the current inbox mental model remained in place at [crispybrain/inbox](../crispybrain/inbox)
 - the broader `docker-compose.yml` stack was preserved rather than deleted
 
 ## What Was Moved or Quarantined
 
-- `litellm-config.yaml` moved to [optional/litellm/litellm-config.yaml](/Users/elric/repos/crispy-ai-lab/optional/litellm/litellm-config.yaml)
-- `openclaw.json` moved to [optional/openclaw/openclaw.json](/Users/elric/repos/crispy-ai-lab/optional/openclaw/openclaw.json)
-- `mock.yml` moved to [archive/experiments/compose/mock.yml](/Users/elric/repos/crispy-ai-lab/archive/experiments/compose/mock.yml)
-- repetitive `final-watch-test*.txt` files moved to [archive/experiments/watch-tests](/Users/elric/repos/crispy-ai-lab/archive/experiments/watch-tests)
+- `litellm-config.yaml` moved to [optional/litellm/litellm-config.yaml](../optional/litellm/litellm-config.yaml)
+- `openclaw.json` moved to [optional/openclaw/openclaw.json](../optional/openclaw/openclaw.json)
+- `mock.yml` moved to [archive/experiments/compose/mock.yml](../archive/experiments/compose/mock.yml)
+- repetitive `final-watch-test*.txt` files moved to [archive/experiments/watch-tests](../archive/experiments/watch-tests)
 
 ## What Was Removed
 
@@ -32,12 +32,12 @@
 
 The new default consulting and client story is:
 
-- use [docker-compose.minimal.yml](/Users/elric/repos/crispy-ai-lab/docker-compose.minimal.yml)
+- use [docker-compose.minimal.yml](../docker-compose.minimal.yml)
 - run:
   - `n8n`
   - `Postgres` with `pgvector`
 - keep Ollama on the host machine
-- load and maintain the exported workflow set under [crispybrain/workflows](/Users/elric/repos/crispy-ai-lab/crispybrain/workflows)
+- load and maintain the exported workflow set under [crispybrain/workflows](../crispybrain/workflows)
 - configure the required n8n Postgres credential after workflow import
 
 ## Remaining Manual Action

@@ -17,6 +17,10 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      default:
+        aliases:
+          - ai-postgres
 
   n8n:
     image: docker.n8n.io/n8nio/n8n:latest
@@ -45,6 +49,10 @@ services:
       - ./crispybrain/inbox:/home/node/.n8n-files/crispybrain/inbox
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    networks:
+      default:
+        aliases:
+          - ai-n8n
 
 volumes:
   postgres_data:

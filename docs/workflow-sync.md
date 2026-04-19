@@ -2,7 +2,7 @@
 
 ## Canonical Workflow Location
 
-The canonical exported workflow snapshots live in [crispybrain/workflows](/Users/elric/repos/crispy-ai-lab/crispybrain/workflows).
+The canonical exported workflow snapshots live in [crispybrain/workflows](../crispybrain/workflows).
 
 Current exported core:
 
@@ -20,7 +20,7 @@ These files are the repo-side source of truth for the current CrispyBrain workfl
 
 ### Recommended local helper
 
-Use [scripts/workflows/export-active-from-docker.sh](/Users/elric/repos/crispy-ai-lab/scripts/workflows/export-active-from-docker.sh) when working against the local Docker-based n8n container.
+Use [scripts/workflows/export-active-from-docker.sh](../scripts/workflows/export-active-from-docker.sh) when working against the local Docker-based n8n container.
 
 ```sh
 scripts/workflows/export-active-from-docker.sh

@@ -93,7 +93,7 @@ The repo suggests a broad AI lab, but the live evidence points to a much smaller
 | `n8n` | All active CrispyBrain workflows live there | This is the application runtime today | REQUIRED NOW |
 | `postgres` / `pgvector` | Active workflows use Postgres; schema defines `memories` and categories | Core memory store | REQUIRED NOW |
 | `Ollama` on host | Active workflows call Ollama directly for `/api/embed` and `/api/generate` | Core model runtime | REQUIRED NOW |
-| `crispybrain/` inbox mount | n8n mounts `/Users/elric/repos/crispy-ai-lab/crispybrain/inbox` | Supports current ingest/watch story | REQUIRED NOW |
+| `crispybrain/` inbox mount | n8n mounts the repo inbox into its working file area | Supports current ingest/watch story | REQUIRED NOW |
 | `litellm` | No active workflow references LiteLLM; config only routes a single Ollama model | Adds an extra hop without evidence of current CrispyBrain value | REMOVE CANDIDATE |
 | `open-webui` | Not referenced by active workflows; depends on LiteLLM | Separate UI/demo surface, not the CrispyBrain core | KEEP FOR LATER |
 | `qdrant` | No active workflow references it; runtime collections are empty | Present in stack, but unused | REMOVE CANDIDATE |
