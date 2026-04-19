@@ -7,8 +7,8 @@
 - `docker-compose.yml`: the main local stack definition
 - `litellm-config.yaml`: LiteLLM model routing config for a local Ollama-backed model
 - `openclaw.json`: OpenClaw gateway and model provider configuration
-- `postgres/init/001-openbrain.sql`: PostgreSQL schema for the CrispyBrain memory store, including `vector` support
-- `openbrain/inbox/openbrain-seed-memories.txt`: seed content for CrispyBrain memory-ingestion experiments
+- `postgres/init/001-crispybrain.sql`: PostgreSQL schema for the CrispyBrain memory store, including `vector` support
+- `crispybrain/inbox/crispybrain-seed-memories.txt`: seed content for CrispyBrain memory-ingestion experiments
 
 ## Current status
 
@@ -33,7 +33,7 @@ Useful files to inspect before starting:
 - `docker-compose.yml`
 - `litellm-config.yaml`
 - `openclaw.json`
-- `postgres/init/001-openbrain.sql`
+- `postgres/init/001-crispybrain.sql`
 
 ## Notes
 

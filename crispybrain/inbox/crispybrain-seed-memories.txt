@@ -43,6 +43,6 @@ for a later phase.
 
 Memory 7
 
-The next planned CrispyBrain stages are: 1. openbrain-build-context 2.
-openbrain-answer-from-memory 3. openbrain-validation-and-errors 4.
-openbrain-project-memory
+The next planned CrispyBrain stages are: 1. crispybrain-build-context 2.
+crispybrain-answer-from-memory 3. crispybrain-validation-and-errors 4.
+crispybrain-project-memory
