@@ -47,7 +47,7 @@ services:
       NODES_EXCLUDE: "[]"
     volumes:
       - n8n_data:/home/node/.n8n
-      - ./crispybrain/inbox:/home/node/.n8n-files/crispybrain/inbox
+      - ../crispybrain/inbox:/home/node/.n8n-files/crispybrain/inbox
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
@@ -68,6 +68,9 @@ services:
       CRISPYBRAIN_DEMO_HOST: 0.0.0.0
       CRISPYBRAIN_DEMO_PORT: 8787
       CRISPYBRAIN_DEMO_WEBHOOK_URL: http://n8n:5678/webhook/crispybrain-demo
+    volumes:
+      - ../crispybrain/demo:/app/demo
+      - ../crispybrain/assets:/app/assets
 
 volumes:
   postgres_data:
