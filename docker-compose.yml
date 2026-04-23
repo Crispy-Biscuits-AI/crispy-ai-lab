@@ -68,6 +68,7 @@ services:
       CRISPYBRAIN_DEMO_HOST: 0.0.0.0
       CRISPYBRAIN_DEMO_PORT: 8787
       CRISPYBRAIN_DEMO_WEBHOOK_URL: http://n8n:5678/webhook/crispybrain-demo
+      CRISPYBRAIN_APP_VERSION: ${CRISPYBRAIN_APP_VERSION:-}
     volumes:
       - ../crispybrain/demo:/app/demo
       - ../crispybrain/assets:/app/assets

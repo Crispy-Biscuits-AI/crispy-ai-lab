@@ -27,7 +27,7 @@ Main services in the default stack:
 
 - `postgres`: memory store with `pgvector`
 - `n8n`: workflow runtime, pinned here to `2.16.1`
-- `crispybrain-demo-ui`: demo UI built from the sibling `crispybrain` repo and served on port `8787`
+- `crispybrain-demo-ui`: demo UI served on port `8787`, with the sibling `crispybrain` repo bind mounted for live local UI updates
 
 Host-side dependency:
 
@@ -68,6 +68,8 @@ cp .env.example .env
 ```bash
 docker compose up -d postgres n8n crispybrain-demo-ui
 ```
+
+For normal UI iteration, changes under `../crispybrain/demo/` and `../crispybrain/assets/` now appear on `http://localhost:8787` without rebuilding the image because the default stack bind mounts those directories into `crispybrain-demo-ui`.
 
 4. Import the current workflow exports from the sibling `crispybrain` repo.
 
@@ -120,6 +122,7 @@ This repo is public-ready, not fully turnkey. The following still need a real op
 The lab also assumes:
 
 - the current demo UI build context points at `../crispybrain` unless you override `CRISPYBRAIN_REPO_PATH`
+- the default `docker-compose.yml` also bind mounts `../crispybrain/demo` and `../crispybrain/assets` into `crispybrain-demo-ui` for live local UI edits
 - the first-run Postgres init SQL only applies when the Postgres volume is new
 - some underlying runtime names and stored data may still carry earlier `openbrain-*` compatibility labels
 

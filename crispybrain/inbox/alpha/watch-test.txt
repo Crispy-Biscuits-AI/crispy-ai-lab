@@ -1,4 +1,0 @@
-CrispyBrain auto-ingest project routing test
-
-This file should be detected by crispybrain-auto-ingest-watch.
-The derived project_slug should be alpha.

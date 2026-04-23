@@ -11,6 +11,8 @@ git clone <crispy-ai-lab-repo-url> crispy-ai-lab
 
 The default demo UI service expects the sibling repo layout above. If your layout is different, set `CRISPYBRAIN_REPO_PATH` in `.env`.
 
+With the default stack, `../crispybrain/demo` and `../crispybrain/assets` are bind mounted into `crispybrain-demo-ui`, so normal UI edits show up on `localhost:8787` without rebuilding.
+
 ## 2. Configure The Lab Environment
 
 ```sh
@@ -50,6 +52,8 @@ This is the recommended public walkthrough because it gives you:
 - Postgres
 - n8n
 - the demo UI on `localhost:8787`
+
+Once the service is running, changes in the sibling `crispybrain` UI files are reflected live through those bind mounts.
 
 If you only want the lab runtime without the demo UI, use `docker-compose.minimal.yml` instead.
 

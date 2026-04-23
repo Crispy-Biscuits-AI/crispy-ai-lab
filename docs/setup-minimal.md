@@ -9,7 +9,7 @@ A minimum working CrispyBrain environment can:
 - retrieve relevant memory for a question
 - generate an answer with Ollama
 
-It does not require the broader optional lab stack. It also does not automatically include the demo UI on `8787`; that is provided by the default `docker-compose.yml` stack when the sibling `crispybrain` repo is present.
+It does not require the broader optional lab stack. It also does not automatically include the demo UI on `8787`; that is provided by the default `docker-compose.yml` stack when the sibling `crispybrain` repo is present, with `../crispybrain/demo` and `../crispybrain/assets` bind mounted for live local UI iteration.
 
 ## Required Files
 
@@ -55,6 +55,8 @@ If you want the current public demo surface as well, run the default stack inste
 ```sh
 docker compose up -d postgres n8n crispybrain-demo-ui
 ```
+
+With that default stack, normal edits in the sibling `crispybrain` UI files show up on `http://localhost:8787` without rebuilding the UI image.
 
 ## Postgres Initialization Assumptions
 
